@@ -20,6 +20,6 @@ const Colour getTurn(const char c);
 const CastlePerm getCastlePerm(const char c);
 location getLocation(const char c1, const char c2);
 bool enPassantSet(const location& enPass);
-const std::string getMoveStr(const int fromX, const int fromY, const int toX, const int toY, const PieceType promotion);
+const std::string getMoveStr(const move& move);
 
 #endif

@@ -7,8 +7,15 @@
 #include "game.h"
 
 #define PIECE_AT(y, x)        ((x < 0 || x > 7 || y < 0 || y > 7) ? off_board : currentState.board[y][x])
-#define IS_ENPASS_SET(enPass) (enPass.x != -1 && enPass.y != -1)
 #define MOVE_IS_ALLOWED(turn) ((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck))
+
+//Copied from boost
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+    std::hash<T> h;
+    seed ^= h(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
 
 const PieceType pieceTypes[14] = {
     Empty,
@@ -51,14 +58,15 @@ const PieceType promotionTypes[4] = {
     Queen
 };
 
-const int MvvLVA [6][6] = {
-//attacker: p   n   b   r   q   k    victim:
-        {   6,  5,  4,  3,  2,  1 }, //pawn
-        {  13, 12, 11, 10,  9,  8 }, //knight
-        {  20, 19, 18, 17, 16, 15 }, //bishop
-        {  27, 26, 25, 24, 23, 22 }, //rook
-        {  34, 33, 32, 31, 30, 29 }, //queen
-        {  99, 99, 99, 99, 99, 99 }, //king (taking king is just as good with any piece) TODO: Not even consider king captures legal moves?
+const int MvvLVA [7][7] = {
+//attacker:   p   n   b   r   q   k    victim:
+        { 0,  0,  0,  0,  0,  0,  0 },
+        { 0,  6,  5,  4,  3,  2,  1 }, //pawn
+        { 0, 13, 12, 11, 10,  9,  8 }, //knight
+        { 0, 20, 19, 18, 17, 16, 15 }, //bishop
+        { 0, 27, 26, 25, 24, 23, 22 }, //rook
+        { 0, 34, 33, 32, 31, 30, 29 }, //queen
+        { 0, 99, 99, 99, 99, 99, 99 }, //king (taking king is just as good with any piece) TODO: Not even consider king captures legal moves?
 };
 
 void Game::startPosition(const std::string& fen) {
@@ -70,14 +78,18 @@ void Game::startPosition(const std::string& fen) {
         .y = -1
     };
 
-    int x = 0;
-    int y = 7;
+    std::vector<std::string> parts;
+    split(fen, parts);
 
-    for(auto it = fen.begin(); it < fen.end(); ++it) {
+    //Position
+    std::string position = parts[0];
+    int x = 0;
+    int y = 0;
+    for(auto it = position.begin(); it < position.end(); ++it) {
         char c = *it;
 
         if(c == '/') {
-            --y;
+            ++y;
             x = 0;
         }
         else if(c >= '0' && c <= '9') {
@@ -90,42 +102,35 @@ void Game::startPosition(const std::string& fen) {
             currentState.board[y][x] = getPiece(c);
             ++x;
         }
-        else {
-            //End of positions
-            ++it; //Consume space
-            
-            currentState.turn = getTurn(*it);
+    }
 
-            ++it; //Consume turn
-            ++it; //Consume space
+    //Turn
+    std::string turn = parts[1];
+    currentState.turn = getTurn(turn.at(0));
 
-            while(*it != ' ') {
-                currentState.castlePerm |= getCastlePerm(*it);
-                ++it;
-            }
-
-            ++it; //Consume space
-
-            if(*it == '-') {
-                ++it;
-            }
-            else {
-                char c1 = *it; 
-                ++it;
-                char c2 = *it;
-                currentState.enPass = getLocation(c1, c2);
-            }
-
-            ++it; //Consume space
-
-            currentState.fiftyMove = *it - '0';
-            
-            ++it; //Consume fifty move
-            ++it; //Consume space
-
-            currentState.turns = *it - '0';
+    //Castle permissions
+    std::string castlePerms = parts[2];
+    if(castlePerms.at(0) != '-') {
+        for(auto it = castlePerms.begin(); it < castlePerms.end(); ++it) {        
+            currentState.castlePerm |= getCastlePerm(*it);
         }
     }
+    
+    //En passant
+    std::string enPass = parts[3];
+    if(enPass.at(0) != '-') {
+        currentState.enPass = getLocation(enPass.at(0), enPass.at(1));
+    }
+
+    //Fifty move
+    currentState.fiftyMove = std::stoi(parts[4]);
+
+    //Turns
+    currentState.turns = std::stoi(parts[5]);
+
+    //Set hash code
+    currentState.hashCode = 0;
+    hash_combine(currentState.hashCode, fen);
 }
 
 void Game::makeMove(const std::string& move) {
@@ -266,6 +271,13 @@ void Game::makeMove(const move& m) {
 
     currentState.turn = (Colour)-currentState.turn;
     ++currentState.turns;
+
+    //Update hash
+    hash_combine(currentState.hashCode, m.fromX);
+    hash_combine(currentState.hashCode, m.toX);
+    hash_combine(currentState.hashCode, m.fromY);
+    hash_combine(currentState.hashCode, m.toY);
+    hash_combine(currentState.hashCode, (int)m.promotion);
 }
 
 void Game::undoLastMove() {
@@ -295,7 +307,7 @@ const bool Game::isAttacked(int x, int y, const Colour attackingColour) {
     }
 
     //En passant
-    if(/*IS_ENPASS_SET(currentState.enPass) && */y == currentState.enPass.y - pawnMoveDir && x == currentState.enPass.x) {
+    if(y == currentState.enPass.y - pawnMoveDir && x == currentState.enPass.x) {
         const Piece leftEnPassant = PIECE_AT(y, x - 1);
         const Piece rightEnPassant = PIECE_AT(y, x + 1);
 
@@ -401,34 +413,12 @@ void Game::addQuietMove(const Colour turn, std::vector<move>& moves, move move) 
 }
 
 void Game::addCaptureMove(const Colour turn, std::vector<move>& moves, move move, const Piece pieceMoved, const Piece capturedPiece) {
-    // int previousCastlePerm = currentState.castlePerm;
-
+    if(pieceTypes[capturedPiece] == King) {
+        return;
+    }
+    
     move.score = MvvLVA[pieceTypes[capturedPiece]][pieceTypes[pieceMoved]];
     moves.push_back(move);
-
-    //TODO: Lazily evaluate moves in negamax
-    // makeMove(move);
-
-    // if((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck)) {
-    //     move.score = 0;
-
-    //     if(capturedPiece != empty) {
-    //         move.score = pieceTypeMoveScores[pieceTypes[capturedPiece]];
-
-    //         //TODO: Score based on piece being used to capture vs. piece being captured
-    //     }
-
-    //     //Negatively weight moves that give up castle permissions (?)
-    //     if(currentState.castlePerm != previousCastlePerm) {
-    //         move.score--;
-    //     }
-
-    //     // TODO: Negatively score moves that lead to 3-repetition
-
-    //     moves.push_back(move);
-    // }
-
-    // undoLastMove();
 }
 
 void Game::generateMoves(const Colour turn, std::vector<move>& moves) {
@@ -856,63 +846,15 @@ int Game::getScore(int turn, const std::vector<move>& availableMyMoves, const st
     }
 
     //Mobility score
-    // score += -turn * (availableMyMoves.size() - availableOpponentMoves.size());
+    score += -turn * (availableMyMoves.size() - availableOpponentMoves.size());
+
+    //Protect king
+
+    //Sentries
+
+    //Queens,Rooks to 7th/1st
 
     return score;
-}
-
-const int Game::negamax(move& mv, const std::vector<move>& moves, int depth, int alpha, int beta, Colour turn) {
-    //TODO: Detect mate and return INT_MAX - depth for score in this case
-    //TODO: Principle variation
-
-    int maxScore = INT_MIN;
-    move bestMove;
-
-    for(auto it = moves.begin(); it != moves.end(); ++it) {
-        move m = *it;
-        makeMove(m);
-
-        if(!MOVE_IS_ALLOWED(turn)) {
-            undoLastMove();
-            continue;
-        }
-
-        int score = INT_MIN;
-
-        std::vector<move> nextOpponentMoves;
-        generateMoves((Colour)-turn, nextOpponentMoves);
-
-        if(depth == 0 || nextOpponentMoves.size() == 0) {
-            std::vector<move> nextMyMoves;
-            generateMoves(turn, nextMyMoves);
-
-            score = -turn * getScore(turn, nextMyMoves, nextOpponentMoves);
-        }
-        else {
-            std::sort(nextOpponentMoves.begin(), nextOpponentMoves.end(), [](const move& a, const move& b) { return a.score > b.score; });  
-
-            move _nextMove;
-            score = -negamax(_nextMove, nextOpponentMoves, depth - 1, -beta, -alpha, (Colour)-turn);
-        }
-
-        if(score > maxScore) {
-            maxScore = score;
-            bestMove = m;
-        }
-
-        if(score > alpha) {
-            alpha = score;
-        }
-
-        undoLastMove();
-
-        if(alpha >= beta) {
-            break;
-        }
-    }
-
-    mv = bestMove;
-    return maxScore;
 }
 
 void Game::print() {
@@ -929,5 +871,6 @@ void Game::print() {
     // printf("Fifty: %d\n", fiftyMove);
     printf("En-passant: %d, %d\n", currentState.enPass.x, currentState.enPass.y);
     printf("Castling: K:%d Q:%d k:%d q:%d", (currentState.castlePerm & K), (currentState.castlePerm & Q) >> 1, (currentState.castlePerm & k) >> 2, (currentState.castlePerm & q) >> 3);
+    printf("Hash code: %zu\n", currentState.hashCode);
     printf("\n");
 }

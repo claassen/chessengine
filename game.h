@@ -53,6 +53,8 @@ struct location {
     int y;
 };
 
+#define NO_LOCATION (location{ .x = -1, .y = -1 })
+
 struct gameState {
     Piece board[8][8];
     Colour turn = WHITE;
@@ -65,6 +67,7 @@ struct gameState {
     int turns;
     bool whiteInCheck;
     bool blackInCheck;
+    size_t hashCode;
 };
 
 struct move {
@@ -74,7 +77,21 @@ struct move {
     int toY;
     PieceType promotion;
     int score;
+
+    bool operator==(const move& rhs) {
+        return fromX == rhs.fromX &&
+            fromY == rhs.fromY &&
+            toX == rhs.toX &&
+            toY == rhs.toY &&
+            promotion == rhs.promotion;
+    }
+
+    bool operator!=(const move& rhs) {
+        return !(*this == rhs);
+    }
 };
+
+#define NO_MOVE (move{ .fromX = -1, .fromY = -1, .toX = -1, .toY = -1, .promotion = Empty })
 
 class Game {
 public:
@@ -95,7 +112,6 @@ public:
     void generateQueenMoves(const Colour turn, std::vector<move>& moves, int x, int y);
     void generateKingMoves(const Colour turn, std::vector<move>& moves, int x, int y);
     int getScore(int turn, const std::vector<move>& availableMyMoves, const std::vector<move>& availableOpponentMoves);
-    const int negamax(move& mv, const std::vector<move>& moves, int depth, int alpha, int beta, Colour turn);
     void print();
 };
 

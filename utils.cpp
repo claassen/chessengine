@@ -23,7 +23,7 @@ char getPieceDisplay(Piece piece) {
         case wN: return 'N';
         case wB: return 'B';
         case wR: return 'R';
-        case wQ: return 'W';
+        case wQ: return 'Q';
         case wK: return 'K';
         default: return '?';
     }
@@ -53,18 +53,18 @@ char getPiecePromotionChar(PieceType pieceType) {
 
 const Piece getPiece(const char c) {
     switch(c) {
-        case 'p': return wP;
-        case 'n': return wN;
-        case 'b': return wB;
-        case 'r': return wR;
-        case 'q': return wQ;
-        case 'k': return wK;
-        case 'P': return bP;
-        case 'N': return bN;
-        case 'B': return bB;
-        case 'R': return bR;
-        case 'Q': return bQ;
-        case 'K': return bK;
+        case 'p': return bP;
+        case 'n': return bN;
+        case 'b': return bB;
+        case 'r': return bR;
+        case 'q': return bQ;
+        case 'k': return bK;
+        case 'P': return wP;
+        case 'N': return wN;
+        case 'B': return wB;
+        case 'R': return wR;
+        case 'Q': return wQ;
+        case 'K': return wK;
         default: return empty;
     }
 }
@@ -120,8 +120,8 @@ location getLocation(const char c1, const char c2) {
     };
 }
 
-const std::string getMoveStr(const int fromX, const int fromY, const int toX, const int toY, const PieceType promotion) {
+const std::string getMoveStr(const move& move) {
     std::stringstream ss;
-    ss << (char)('a' + fromX) << (8 - fromY) << (char)('a' + toX) << (8 - toY) << getPiecePromotionChar(promotion);
+    ss << (char)('a' + move.fromX) << (8 - move.fromY) << (char)('a' + move.toX) << (8 - move.toY) << getPiecePromotionChar(move.promotion);
     return ss.str();
 }
