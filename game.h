@@ -9,6 +9,7 @@
 #include "debug.h"
 
 #define STARTPOS "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+#define INFINITY (INT_MAX - 1)
 
 enum Colour {
     WHITE = 1,
@@ -77,8 +78,9 @@ struct enPassLocation {
 #define NO_EN_PASS 0
 #define EN_PASS(x, y) (((0x7 & x) << 3) + (0x7 & y))
 
+//TODO: This is 608 bytes
 struct gameState {
-    Piece board[8][8];
+    Piece board[12][12];
     Colour turn = WHITE;
     int castlePerm;
     enPassLocation enPass = NO_EN_PASS;

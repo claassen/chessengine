@@ -71,7 +71,7 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
 
     if(!anyMoves && (turn == WHITE ? game->currentState.whiteInCheck : game->currentState.blackInCheck)) {
         //Check mate. Current player is in check and there are no legal moves available
-        return -turn * (INT_MAX - ply);
+        return -turn * (INFINITY - ply);
     }
 
     addPvMove(game->currentState, bestMove);

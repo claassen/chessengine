@@ -29,7 +29,7 @@ void search(move* bestMove, volatile bool* stop) {
         }
 
         move move;
-        int score = alphaBeta(game, move, depth, turn == BLACK ? INT_MIN : INT_MAX, turn == BLACK ? INT_MAX : INT_MIN, turn, 1, stop);      
+        int score = alphaBeta(game, move, depth, -INFINITY, INFINITY, turn, 1, stop);      
 
         if(!*stop) {
             LOG(std::string("") + "info depth " + std::to_string(depth) + " score cp " + std::to_string(score) + " move " + getMoveStr(move));
@@ -45,15 +45,17 @@ void position(const std::string& input) {
 
     std::vector<std::string> moves;
 
+    int movesStart = input.find("moves");
+    if(movesStart != -1) {
+        split(input.substr(movesStart + 6), moves);              
+    }
+
     if(input.substr(9, 8).compare("startpos") == 0) {
-        split(input.substr(23), moves);
+        //position startpos
         game->startPosition(STARTPOS);
     }
     else {
-        int movesStart = input.find("moves");
-        if(movesStart != -1) {
-            split(input.substr(movesStart + 6), moves);              
-        }
+        //position fen <fen>
         game->startPosition(input.substr(13, movesStart - 1));
     }
 

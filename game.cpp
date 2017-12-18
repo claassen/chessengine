@@ -6,8 +6,9 @@
 #include "utils.h"
 #include "debug.h"
 
-#define PIECE_AT(y, x)        ((x < 0 || x > 7 || y < 0 || y > 7) ? off_board : currentState.board[y][x])
-#define MOVE_IS_ALLOWED(turn) ((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck))
+#define SET_PIECE(y, x, piece) (currentState.board[y + 2][x + 2] = piece)
+#define PIECE_AT(y, x)         (currentState.board[y + 2][x + 2])
+#define MOVE_IS_ALLOWED(turn)  ((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck))
 
 //Copied from boost
 template <class T>
@@ -79,6 +80,18 @@ void Game::startPosition(const std::string& fen) {
     std::vector<std::string> parts;
     split(fen, parts);
 
+    //Initialize off_board squares
+    for(int i = 0; i < 12; ++i) {
+        currentState.board[0][i] = off_board;
+        currentState.board[1][i] = off_board;
+        currentState.board[10][i] = off_board;
+        currentState.board[11][i] = off_board;
+        currentState.board[i][0] = off_board;
+        currentState.board[i][1] = off_board;
+        currentState.board[i][10] = off_board;
+        currentState.board[i][11] = off_board;
+    }
+
     //Position
     std::string position = parts[0];
     int x = 0;
@@ -92,12 +105,12 @@ void Game::startPosition(const std::string& fen) {
         }
         else if(c >= '0' && c <= '9') {
             for(int i = 0; i < c - '0'; i++) {
-                currentState.board[y][x] = empty;
+                SET_PIECE(y, x, empty);
                 ++x;
             }
         }
         else if(c != ' ') {
-            currentState.board[y][x] = getPiece(c);
+            SET_PIECE(y, x, getPiece(c));
             ++x;
         }
     }
@@ -155,10 +168,10 @@ void Game::makeMove(const std::string& move) {
 void Game::makeMove(const move& m) {
     stateHistory.push(currentState);
 
-    const Piece p = currentState.board[m.fromY][m.fromX];
-    const Piece capturedPiece = currentState.board[m.toY][m.toX];
+    const Piece p = PIECE_AT(m.fromY, m.fromX);
+    const Piece capturedPiece = PIECE_AT(m.toY, m.toX);
 
-    if(p == bP || p == wP || currentState.board[m.toY][m.toX] != empty || (currentState.enPass != NO_EN_PASS && m.toX == currentState.enPass.x && m.toY == currentState.enPass.y)) {
+    if(p == bP || p == wP || PIECE_AT(m.toY, m.toX) != empty || (currentState.enPass != NO_EN_PASS && m.toX == currentState.enPass.x && m.toY == currentState.enPass.y)) {
         //Pawn move or capture, reset 50 move rule
         currentState.fiftyMove = 0;
     }
@@ -167,26 +180,26 @@ void Game::makeMove(const move& m) {
     }
 
     if(m.promotion != Empty) {
-        currentState.board[m.toY][m.toX] = getPiece(m.promotion, currentState.turn);   
+        SET_PIECE(m.toY, m.toX, getPiece(m.promotion, currentState.turn));
     }
     else {
-        currentState.board[m.toY][m.toX] = p;
+        SET_PIECE(m.toY, m.toX, p);
     }
 
     //En passant capture
     if(currentState.enPass != NO_EN_PASS && pieceTypes[p] == Pawn && m.toX == currentState.enPass.x && m.toY == currentState.enPass.y) {
         if(currentState.turn == WHITE) {
-            currentState.board[currentState.enPass.y + 1][currentState.enPass.x] = empty;
+            SET_PIECE(currentState.enPass.y + 1, currentState.enPass.x, empty);
         }
         else {
-            currentState.board[currentState.enPass.y - 1][currentState.enPass.x] = empty;
+            SET_PIECE(currentState.enPass.y - 1, currentState.enPass.x, empty);
         }
 
         currentState.enPass = NO_EN_PASS;
     }
 
     //Make move
-    currentState.board[m.fromY][m.fromX] = empty;
+    SET_PIECE(m.fromY, m.fromX, empty);
 
     //Update castling permissions for captured rooks
     if(capturedPiece == bR) {
@@ -210,26 +223,26 @@ void Game::makeMove(const move& m) {
     if(p == bK && m.toX == m.fromX - 2) {
         //Black king side
         currentState.castlePerm &= ~q;
-        currentState.board[0][m.toX + 1] = bR;
-        currentState.board[0][0] = empty;
+        SET_PIECE(0, m.toX + 1, bR);
+        SET_PIECE(0, 0, empty);
     }
     else if(p == bK && m.toX == m.fromX + 2) {
         //Black queen side
         currentState.castlePerm &= ~k;
-        currentState.board[0][m.toX - 1] = bR;
-        currentState.board[0][7] = empty;
+        SET_PIECE(0, m.toX - 1, bR);
+        SET_PIECE(0, 7, empty);
     }
     else if(p == wK && m.toX == m.fromX - 2) {
         //White king side
         currentState.castlePerm &= ~Q;
-        currentState.board[7][m.toX + 1] = wR;
-        currentState.board[7][0] = empty;
+        SET_PIECE(7, m.toX + 1, wR);
+        SET_PIECE(7, 0, empty);
     }
     else if(p == wK && m.toX == m.fromX + 2) {
         //White queen side
         currentState.castlePerm &= ~K;
-        currentState.board[7][m.toX - 1] = wR;
-        currentState.board[7][7] = empty;
+        SET_PIECE(7, m.toX - 1, wR);
+        SET_PIECE(7, 7, empty);
     }
 
     //Reset en pasant
@@ -298,7 +311,7 @@ void Game::undoLastMove() {
 
 //TODO: This is #1 performance bottleneck
 const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attackingColour) {
-    if(pieceColours[currentState.board[y][x]] == attackingColour) {
+    if(pieceColours[PIECE_AT(y, x)] == attackingColour) {
         //Cannot attack own side
         return false;
     }
@@ -421,7 +434,7 @@ const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attacki
 void Game::addQuietMove(const Colour turn, std::vector<move>& moves, move move) {
     assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
 
-    move.score = move.isCastle ? 50 : 0;
+    move.score = move.isCastle ? 100 : 0;
     
     //TODO: This is slow!
     moves.push_back(move);
@@ -446,7 +459,7 @@ void Game::addCaptureMove(const Colour turn, std::vector<move>& moves, move move
 void Game::generateMoves(const Colour turn, std::vector<move>& moves) {
     for(unsigned int i = 0; i < 8; i++) {
         for (unsigned int j = 0; j < 8; j++) {
-            Piece p = currentState.board[i][j];
+            Piece p = PIECE_AT(i, j);
 
             if(pieceColours[p] != turn) {
                 continue;
@@ -499,7 +512,6 @@ void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsign
             .toY = y + pawnMoveDir
         }, piece, enPassPiece);
     }
-    //else ?
     //Regular capture left
     else if(pieceColours[leftDiag] == -turn) {
         assert(leftDiag != empty);
@@ -551,7 +563,6 @@ void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsign
             .toY = y + pawnMoveDir
         }, piece, enPassPiece);
     }
-    //else ?
     //Regular capture right
     else if(pieceColours[rightDiag] == -turn) {
         assert(rightDiag != empty);
@@ -685,8 +696,8 @@ void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsi
         for(int j = 0; j < 2; ++j) {
             int searchDirY = yDirsDiag[i];
             int searchDirX = xDirsDiag[j];
-            unsigned int searchY = y;    
-            unsigned int searchX = x;
+            int searchY = y;    
+            int searchX = x;
 
             while(true) {
                 searchX += searchDirX;
@@ -701,16 +712,16 @@ void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsi
                     addQuietMove(turn, moves, {
                         .fromX = x,
                         .fromY = y,
-                        .toX = searchX,
-                        .toY = searchY
+                        .toX = (unsigned int)searchX,
+                        .toY = (unsigned int)searchY
                     });
                 }
                 else if(pieceColours[p] == -turn) {
                     addCaptureMove(turn, moves, {
                         .fromX = x,
                         .fromY = y,
-                        .toX = searchX,
-                        .toY = searchY
+                        .toX = (unsigned int)searchX,
+                        .toY = (unsigned int)searchY
                     }, piece, p);
                     break;
                 }
@@ -727,8 +738,8 @@ void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsign
     for(int i = 0; i < 4; ++i) {
         int searchDirY = yDirsNonDiag[i];
         int searchDirX = xDirsNonDiag[i];
-        unsigned int searchY = y;
-        unsigned int searchX = x;
+        int searchY = y;
+        int searchX = x;
 
         while(true) {
             searchX += searchDirX;
@@ -743,16 +754,16 @@ void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsign
                 addQuietMove(turn, moves, {
                     .fromX = x,
                     .fromY = y,
-                    .toX = searchX,
-                    .toY = searchY
+                    .toX = (unsigned int)searchX,
+                    .toY = (unsigned int)searchY
                 });
             }
             else if(pieceColours[p] == -turn) {
                 addCaptureMove(turn, moves, {
                     .fromX = x,
                     .fromY = y,
-                    .toX = searchX,
-                    .toY = searchY
+                    .toX = (unsigned int)searchX,
+                    .toY = (unsigned int)searchY
                 }, piece, p);
                 break;
             }
@@ -990,7 +1001,7 @@ void Game::print() {
     for(int i = 0; i < 8; ++i) {
         printf("%d  ", 8 - i);
         for(int j = 0; j < 8; ++j) {
-            printf("%c ", getPieceDisplay(currentState.board[i][j]));
+            printf("%c ", getPieceDisplay(PIECE_AT(i, j)));
         }
         printf("\n");
     }
