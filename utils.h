@@ -18,8 +18,7 @@ const Piece getPiece(const char c, const Colour turn);
 const Piece getPiece(PieceType pieceType, const Colour turn);
 const Colour getTurn(const char c);
 const CastlePerm getCastlePerm(const char c);
-location getLocation(const char c1, const char c2);
-bool enPassantSet(const location& enPass);
+const enPassLocation getEnPassLocation(const char c1, const char c2);
 const std::string getMoveStr(const move& move);
 
 #endif

@@ -5,31 +5,15 @@
 #include <mutex>
 #include <chrono>
 
-// #define NDEBUG
-
-#include "testengine.h"
 #include "game.h"
 #include "pvtable.h"
 #include "search.h"
 #include "utils.h"
-#include "logging.h"
+#include "perft.h"
+#include "debug.h"
 
 #define PV_TABLE_SIZE (1024 * 1024 * 100)  //100 MB
 #define MAX_SEARCH_DEPTH 8
-
-
-//Mate in 3ish (fixed):
-//position fen r1b3n1/pp5r/n2k4/2p2pp1/q7/8/8/b3K3 w - f6 0 28 moves e1f1
-
-//Mate is 1 (fixed):
-//position fen r1b1kbn1/pppp1pp1/6p1/P1n5/5q2/8/7r/3K4 w - - 1 21 moves a5a6
-
-//Stupid queen move (fixed):
-//position fen rnb1kBnr/ppp2ppp/8/8/P1pp1P2/6P1/P2P1K1P/q4B2 b kq - 1 12
-
-//Stupid queen move (fixed):
-//position fen rnb1kbnr/pppp1ppp/8/4p3/4P2q/2N3P1/PPPP1P1P/R1BQKBNR b KQkq - 0 3
-
 
 Game* game = new Game();
 std::mutex search_m;
@@ -37,13 +21,15 @@ std::mutex search_m;
 void search(move* bestMove, volatile bool* stop) {
     std::lock_guard<std::mutex> lock(search_m);
 
+    Colour turn = game->currentState.turn;
+
     for(int depth = 1; depth <= MAX_SEARCH_DEPTH; ++depth) {
         if(*stop) {
             return;
         }
 
         move move;
-        int score = alphaBeta(game, move, depth, INT_MIN, INT_MAX, BLACK, 1, stop);      
+        int score = alphaBeta(game, move, depth, turn == BLACK ? INT_MIN : INT_MAX, turn == BLACK ? INT_MAX : INT_MIN, turn, 1, stop);      
 
         if(!*stop) {
             LOG(std::string("") + "info depth " + std::to_string(depth) + " score cp " + std::to_string(score) + " move " + getMoveStr(move));
@@ -95,10 +81,10 @@ int main() {
     std::cout.setf(std::ios::unitbuf);
     std::cin.setf(std::ios::unitbuf);
     // signal(SIGINT, SIG_IGN);
-
     initPvTable(PV_TABLE_SIZE);
+    INIT_LOGGING();
 
-    std::string input;    
+    std::string input;        
     
     while(true) {
         std::getline(std::cin, input);
@@ -119,13 +105,13 @@ int main() {
             game = new Game();
         }
         else if(input.substr(0, 8).compare("position") == 0) {
+            //position startpos [moves e2e4...]
+            //position fen <fen> [moves e2e4...]
             position(input);
         }
         else if(input.substr(0, 2).compare("go") == 0) {
             std::vector<std::string> parts;
             split(input, parts);
-
-            
 
             //TODO: Parse wtime
             //TODO: Deal with playing either colour
@@ -133,6 +119,17 @@ int main() {
         }
         else if(input.compare("stop") == 0) {
             // stop = true;
+        }
+        else if(input.compare("perft suite") == 0) {
+            perftTestSuite(game);
+            return 0;
+        }
+        else if(input.substr(0, 5).compare("perft") == 0) {
+            //perft <depth>
+            perftDivide(game, std::stoi(input.substr(6)));
+        }
+        else if(input.compare("p") == 0) {
+            game->print();
         }
     }
 }

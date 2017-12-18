@@ -1,0 +1,11 @@
+TODO:
+
+- Use 12x12 board for performance to avoid bounds checks
+- Deal with not just playing as black
+- Score castling moves higher
+- Score pawn chaining
+- Score king defense
+- "Killer move" heuristic
+- "History" heuristic
+- Main loop: max depth OR time
+- Quiescence

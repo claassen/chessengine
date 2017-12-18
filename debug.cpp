@@ -1,8 +1,8 @@
-#include "logging.h"
+#include "debug.h"
 
 std::ofstream __logFile("/Users/claassen/workspace/debug.txt");
 
-void initialize() {
+void initializeLogging() {
     if(!__logFile.is_open()) {
         std::cout << "Failed to open debug output";
         exit(1);

@@ -1,9 +1,9 @@
 #include "search.h"
 #include "pvtable.h"
-#include "logging.h"
+#include "debug.h"
 
 #define MOVE_IS_ALLOWED(game, turn) ((turn == WHITE && !game->currentState.whiteInCheck) || (turn == BLACK && !game->currentState.blackInCheck))
-#define MOVE_SCORE_PV INT_MAX
+#define MOVE_SCORE_PV MOVE_SCORE_MAX
 
 const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour turn, int ply, volatile bool* stop) {
     if(*stop) {
@@ -15,7 +15,9 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
     
     if(depth == 0) {
         std::vector<move> opponentMoves;
-        game->generateMoves((Colour)-turn, opponentMoves);
+
+        //TODO: This breaks things!
+        // game->generateMoves((Colour)-turn, opponentMoves);
 
         return -turn * game->getScore(turn, moves, opponentMoves);
     }
@@ -41,7 +43,7 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
         //We have to actually make a move to see if it is legal in terms of not leaving the player in check
         //which we defer to checking here as moves may be skipped by alpha-beta pruning in which case we never
         //actually need to check this
-        if(!MOVE_IS_ALLOWED(game, turn)) {
+        if((turn == WHITE && game->currentState.whiteInCheck) || (turn == BLACK && game->currentState.blackInCheck)) {
             game->undoLastMove();
             continue;
         }
