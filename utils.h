@@ -20,5 +20,6 @@ const Colour getTurn(const char c);
 const CastlePerm getCastlePerm(const char c);
 const enPassLocation getEnPassLocation(const char c1, const char c2);
 const std::string getMoveStr(const move& move);
+const long long getCurrentTimeInMs();
 
 #endif

@@ -2,7 +2,7 @@
 #define LOGGING_H
 
 //Define to disable debugging
-// #define NDEBUG
+#define NDEBUG
 
 #include <cassert>
 #include <iostream>

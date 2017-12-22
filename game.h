@@ -78,17 +78,16 @@ struct enPassLocation {
 #define NO_EN_PASS 0
 #define EN_PASS(x, y) (((0x7 & x) << 3) + (0x7 & y))
 
-//TODO: This is 608 bytes
 struct gameState {
     Piece board[12][12];
     Colour turn = WHITE;
-    int castlePerm;
+    unsigned int castlePerm : 4;
     enPassLocation enPass = NO_EN_PASS;
-    int fiftyMove;
-    int turns;
+    int fiftyMove : 5;
+    int turns : 8;
     bool whiteInCheck;
     bool blackInCheck;
-    size_t hashCode;
+    unsigned long long hashCode;
 };
 
 #define MOVE_SCORE_MAX  16382 //15 bits signed
@@ -121,7 +120,7 @@ struct move {
 class Game {
 public:
     gameState currentState;
-    std::stack<gameState, std::vector<gameState>> stateHistory;
+    std::vector<gameState> stateHistory;
     void startPosition(const std::string& fen);
     void makeMove(const std::string& move);
     void makeMove(const move& move);
@@ -129,14 +128,14 @@ public:
     const bool isAttacked(unsigned int x, unsigned int y, const Colour attackingColour);
     void addQuietMove(const Colour turn, std::vector<move>& moves, move move);
     void addCaptureMove(const Colour turn, std::vector<move>& moves, move move, const Piece pieceMoved, const Piece capturedPiece);
-    void generateMoves(const Colour turn, std::vector<move>& moves);
-    void generatePawnMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y);
-    void generateKnightMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y);
-    void generateBishopMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y);
-    void generateRookMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y);
-    void generateQueenMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y);
-    void generateKingMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y);
-    int getScore(int turn, const std::vector<move>& availableMyMoves, const std::vector<move>& availableOpponentMoves);
+    void generateMoves(const Colour turn, std::vector<move>& moves, bool capturesOnly);
+    void generatePawnMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateKnightMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateBishopMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateRookMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateQueenMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateKingMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    int getScore(int turn);
     void print();
 };
 

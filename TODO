@@ -1,11 +1,22 @@
 TODO:
 
-- Use 12x12 board for performance to avoid bounds checks
-- Deal with not just playing as black
-- Score castling moves higher
+- Detect 3 repetition [DONE]
+- Purposely take 3 repetition for draw when losing
+- Detect 50 move
+- Fix mobility scoring
+- Use 12x12 board for performance to avoid bounds checks [DONE]
+- Switch to plain arrays for moves list
+- Deal with not just playing as black [DONE]
+- Score castling moves higher [DONE]
+- Score castled positions higher
 - Score pawn chaining
+- Score isolated pawns lower (no friendly pawns on either side)
+- Score passed pawns higher (no enemy pawns in front or on either side in front, farther forward the better. Replace existing general pawn position scoring with this)
 - Score king defense
+- Score protected pieces (a piece that can be attacked by own piece)
 - "Killer move" heuristic
 - "History" heuristic
-- Main loop: max depth OR time
-- Quiescence
+- Quiescence [DONE]
+- Transposition tables [DONE]
+- Zobrist hashing [DONE]
+- Incremental hash updates instead of full hash calculation

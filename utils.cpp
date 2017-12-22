@@ -127,3 +127,7 @@ const std::string getMoveStr(const move& move) {
     ss << (char)('a' + move.fromX) << (8 - move.fromY) << (char)('a' + move.toX) << (8 - move.toY) << getPiecePromotionChar(move.promotion);
     return ss.str();
 }
+
+const long long getCurrentTimeInMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}

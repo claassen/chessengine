@@ -15,7 +15,7 @@ void perft(Game* game, int depth, move& moveMade) {
     }
 
     std::vector<move> moves;
-    game->generateMoves(game->currentState.turn, moves);
+    game->generateMoves(game->currentState.turn, moves, false);
 
     for(auto it = moves.begin(); it != moves.end(); ++it) {
         game->makeMove(*it);
@@ -90,7 +90,7 @@ void perftDivide(Game* game, int depth) {
     std::cout << std::endl;
 
     std::vector<move> moves;
-    game->generateMoves(game->currentState.turn, moves);
+    game->generateMoves(game->currentState.turn, moves, false);
 
     int totalNodes = 0;
 

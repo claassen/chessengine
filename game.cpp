@@ -3,20 +3,88 @@
 #include <algorithm>
 
 #include "game.h"
+#include "zobrist.h"
 #include "utils.h"
 #include "debug.h"
 
-#define SET_PIECE(y, x, piece) (currentState.board[y + 2][x + 2] = piece)
-#define PIECE_AT(y, x)         (currentState.board[y + 2][x + 2])
+#define SET_PIECE(row, col, piece) (currentState.board[row + 2][col + 2] = piece)
+#define PIECE_AT(row, col)         (currentState.board[row + 2][col + 2])
 #define MOVE_IS_ALLOWED(turn)  ((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck))
 
-//Copied from boost
-template <class T>
-inline void hash_combine(std::size_t& seed, const T& v)
-{
-    std::hash<T> h;
-    seed ^= h(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
-}
+//Piece location scores in white's perspective
+
+//Pawns should move toward opposite end, also encourage the 2 center pawns to move out
+const int pawnPositionScores[8][8] = {
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {  10,  10,  10,  10,  10,  10,  10,  10 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,   0,   0, -10, -10,   0,   0,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 }
+};
+
+//Knights should stay away from edges and move towards center
+const int knightPositionScores[8][8] = {
+    { -10, -10, -10, -10, -10, -10, -10, -10 },
+    { -10,   5,   5,   5,   5,   5,   5, -10 },
+    { -10,   5,  10,  10,  10,  10,   5, -10 },
+    { -10,   5,  10,  20,  20,  10,   5, -10 },
+    { -10,   5,  10,  20,  20,  10,   5, -10 },
+    { -10,   5,  10,  10,  10,  10,   5, -10 },
+    { -10,   5,   5,   5,   5,   5,   5, -10 },
+    { -10, -10, -10, -10, -10, -10, -10, -10 }
+};
+
+//Bishops should move towards center
+const int bishopPositionScores[8][8] = {
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,   5,   5,   5,   5,   5,   5,   0 },
+    {   0,   5,  10,  10,  10,  10,   5,   0 },
+    {   0,   5,  10,  20,  20,  10,   5,   0 },
+    {   0,   5,  10,  20,  20,  10,   5,   0 },
+    {   0,   5,  10,  10,  10,  10,   5,   0 },
+    {   0,   5,   5,   5,   5,   5,   5,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 }
+};
+
+//Rooks should try to guard edges? Not really sure on this one
+const int rookPositionScores[8][8] = {
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,  10,  10,  10,  10,  10,  10,   0 },
+    {   0,  10,   0,   0,   0,   0,  10,   0 },
+    {   0,  10,   0,   0,   0,   0,  10,   0 },
+    {   0,  10,   0,   0,   0,   0,  10,   0 },
+    {   0,  10,   0,   0,   0,   0,  10,   0 },
+    {   0,  10,  10,  10,  10,  10,  10,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 }
+};
+
+//Queen should move towards center
+const int queenPositionScores[8][8] = {
+    {   0,   0,   0,   0,   0,   0,   0,   0 },
+    {   0,   5,   5,   5,   5,   5,   5,   0 },
+    {   0,   5,  10,  10,  10,  10,   5,   0 },
+    {   0,   5,  10,  20,  20,  10,   5,   0 },
+    {   0,   5,  10,  20,  20,  10,   5,   0 },
+    {   0,   5,  10,  10,  10,  10,   5,   0 },
+    {   0,   5,   5,   5,   5,   5,   5,   0 },
+    {   0,   0,   0,   0,   0,   0,   0,   0 }
+};
+
+//TODO: Need different scores for end game
+//King should stay back and try to castle and avoid corners
+const int kingPositionScores[8][8] = {
+    {-100,  -5,  -5,  -5,  -5,  -5,  -5,-100 },
+    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
+    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
+    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
+    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
+    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
+    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
+    {-100,   0,  10,   0,   0,   0,  10,-100 }
+};
 
 const PieceType pieceTypes[14] = {
     Empty,
@@ -67,11 +135,12 @@ const int MvvLVA [7][7] = {
         { 0, 20, 19, 18, 17, 16, 15 }, //bishop
         { 0, 27, 26, 25, 24, 23, 22 }, //rook
         { 0, 34, 33, 32, 31, 30, 29 }, //queen
-        { 0, 99, 99, 99, 99, 99, 99 }, //king (taking king is just as good with any piece) TODO: Not even consider king captures legal moves?
+        { 0, 99, 99, 99, 99, 99, 99 }, //king
 };
 
 void Game::startPosition(const std::string& fen) {
-    stateHistory = std::stack<gameState, std::vector<gameState>>();
+    // stateHistory = std::stack<gameState, std::vector<gameState>>();
+    stateHistory = std::vector<gameState>();
 
     currentState.turn = WHITE;
     currentState.castlePerm = 0;
@@ -141,7 +210,20 @@ void Game::startPosition(const std::string& fen) {
 
     //Set hash code
     currentState.hashCode = 0;
-    hash_combine(currentState.hashCode, fen);
+
+    for(int row = 0; row < 8; row++) {
+        for(int col = 0; col < 8; col++) {
+            Piece p = PIECE_AT(row, col);
+
+            if(p != empty) {
+                currentState.hashCode ^= zobrist::pieceHashes[row][col][p];
+            }
+        }
+    }
+
+    currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
+    currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
+    currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
 }
 
 void Game::makeMove(const std::string& move) {
@@ -166,7 +248,16 @@ void Game::makeMove(const std::string& move) {
 }
 
 void Game::makeMove(const move& m) {
-    stateHistory.push(currentState);
+    stateHistory.push_back(currentState);
+
+    //Take out enPass location from hash
+    // currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
+
+    //Take out previous castle permissions from hash
+    // currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
+
+    //Take out turn from hash
+    // currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
 
     const Piece p = PIECE_AT(m.fromY, m.fromX);
     const Piece capturedPiece = PIECE_AT(m.toY, m.toX);
@@ -179,10 +270,15 @@ void Game::makeMove(const move& m) {
         ++currentState.fiftyMove;
     }
 
+    //Move piece
+    //Add new piece location to hash
     if(m.promotion != Empty) {
-        SET_PIECE(m.toY, m.toX, getPiece(m.promotion, currentState.turn));
+        Piece promotion = getPiece(m.promotion, currentState.turn);
+        // currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][promotion];    
+        SET_PIECE(m.toY, m.toX, promotion);
     }
     else {
+        // currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][p];
         SET_PIECE(m.toY, m.toX, p);
     }
 
@@ -198,7 +294,9 @@ void Game::makeMove(const move& m) {
         currentState.enPass = NO_EN_PASS;
     }
 
-    //Make move
+    //Remove piece from old location
+    //Take out old piece location from hash
+    // currentState.hashCode ^= zobrist::pieceHashes[m.fromY][m.fromX][p];
     SET_PIECE(m.fromY, m.fromX, empty);
 
     //Update castling permissions for captured rooks
@@ -222,24 +320,32 @@ void Game::makeMove(const move& m) {
     //Castling
     if(p == bK && m.toX == m.fromX - 2) {
         //Black king side
+        // currentState.hashCode ^= zobrist::pieceHashes[0][m.toX + 1][bR];
+        // currentState.hashCode ^= zobrist::pieceHashes[0][0][bR];
         currentState.castlePerm &= ~q;
         SET_PIECE(0, m.toX + 1, bR);
         SET_PIECE(0, 0, empty);
     }
     else if(p == bK && m.toX == m.fromX + 2) {
         //Black queen side
+        // currentState.hashCode ^= zobrist::pieceHashes[0][m.toX - 1][bR];
+        // currentState.hashCode ^= zobrist::pieceHashes[0][7][bR];
         currentState.castlePerm &= ~k;
         SET_PIECE(0, m.toX - 1, bR);
         SET_PIECE(0, 7, empty);
     }
     else if(p == wK && m.toX == m.fromX - 2) {
         //White king side
+        // currentState.hashCode ^= zobrist::pieceHashes[7][m.toX + 1][wR];
+        // currentState.hashCode ^= zobrist::pieceHashes[7][0][wR];
         currentState.castlePerm &= ~Q;
         SET_PIECE(7, m.toX + 1, wR);
         SET_PIECE(7, 0, empty);
     }
     else if(p == wK && m.toX == m.fromX + 2) {
         //White queen side
+        // currentState.hashCode ^= zobrist::pieceHashes[7][m.toX - 1][wR];
+        // currentState.hashCode ^= zobrist::pieceHashes[7][7][wR];
         currentState.castlePerm &= ~K;
         SET_PIECE(7, m.toX - 1, wR);
         SET_PIECE(7, 7, empty);
@@ -284,10 +390,11 @@ void Game::makeMove(const move& m) {
     //Update check status
     for(int i = 0; i < 8; ++i) {
         for(int j = 0; j < 8; ++j) {
-            if(PIECE_AT(i, j) == wK && currentState.turn == WHITE) {
+            Piece kingPiece = PIECE_AT(i, j);
+            if(kingPiece == wK) {
                 currentState.whiteInCheck = isAttacked(j, i, BLACK);
             }
-            else if(PIECE_AT(i, j) == bK && currentState.turn == BLACK) {
+            else if(kingPiece == bK) {
                 currentState.blackInCheck = isAttacked(j, i, WHITE);
             }
         }
@@ -296,17 +403,35 @@ void Game::makeMove(const move& m) {
     currentState.turn = (Colour)-currentState.turn;
     ++currentState.turns;
 
-    //Update hash
-    hash_combine(currentState.hashCode, m.fromX);
-    hash_combine(currentState.hashCode, m.toX);
-    hash_combine(currentState.hashCode, m.fromY);
-    hash_combine(currentState.hashCode, m.toY);
-    hash_combine(currentState.hashCode, (int)m.promotion);
+    //Put new castle permissions back into hash
+    // currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
+
+    //Put new enPass location back into hash
+    // currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
+
+    //Put new turn back into hash
+    // currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
+
+    currentState.hashCode = 0;
+
+    for(int row = 0; row < 8; row++) {
+        for(int col = 0; col < 8; col++) {
+            Piece p = PIECE_AT(row, col);
+
+            if(p != empty) {
+                currentState.hashCode ^= zobrist::pieceHashes[row][col][p];
+            }
+        }
+    }
+
+    currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
+    currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
+    currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
 }
 
 void Game::undoLastMove() {
-    currentState = stateHistory.top();
-    stateHistory.pop();
+    currentState = stateHistory.back();
+    stateHistory.pop_back();
 }
 
 //TODO: This is #1 performance bottleneck
@@ -435,7 +560,7 @@ void Game::addQuietMove(const Colour turn, std::vector<move>& moves, move move) 
     assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
 
     move.score = move.isCastle ? 100 : 0;
-    
+
     //TODO: This is slow!
     moves.push_back(move);
 }
@@ -456,7 +581,7 @@ void Game::addCaptureMove(const Colour turn, std::vector<move>& moves, move move
     moves.push_back(move);
 }
 
-void Game::generateMoves(const Colour turn, std::vector<move>& moves) {
+void Game::generateMoves(const Colour turn, std::vector<move>& moves, bool capturesOnly) {
     for(unsigned int i = 0; i < 8; i++) {
         for (unsigned int j = 0; j < 8; j++) {
             Piece p = PIECE_AT(i, j);
@@ -467,22 +592,22 @@ void Game::generateMoves(const Colour turn, std::vector<move>& moves) {
 
             switch(pieceTypes[p]) {
                 case Pawn: 
-                    generatePawnMoves(turn, moves, j, i);
+                    generatePawnMoves(turn, moves, j, i, capturesOnly);
                     break;
                 case Knight:
-                    generateKnightMoves(turn, moves, j, i);
+                    generateKnightMoves(turn, moves, j, i, capturesOnly);
                     break;
                 case Bishop:
-                    generateBishopMoves(turn, moves, j, i);
+                    generateBishopMoves(turn, moves, j, i, capturesOnly);
                     break;
                 case Rook:
-                    generateRookMoves(turn, moves, j, i);
+                    generateRookMoves(turn, moves, j, i, capturesOnly);
                     break;
                 case Queen:
-                    generateQueenMoves(turn, moves, j, i);
+                    generateQueenMoves(turn, moves, j, i, capturesOnly);
                     break;  
                 case King:
-                    generateKingMoves(turn, moves, j, i);
+                    generateKingMoves(turn, moves, j, i, capturesOnly);
                     break;
                 default:
                     break;
@@ -491,7 +616,7 @@ void Game::generateMoves(const Colour turn, std::vector<move>& moves) {
     }
 }
 
-void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y) {
+void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     const int pawnMoveDir = turn == BLACK ? 1 : -1;
@@ -601,56 +726,58 @@ void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsign
 
     const Piece forwardOne = PIECE_AT(y + pawnMoveDir, x);
 
-    //Non capture move forward
-    if(forwardOne == empty) {
-        if(turn == WHITE && y == 1) {
-            //White promotion
-            for(int i = 0; i < 4; ++i) {
+    if(!capturesOnly) {
+        //Non capture move forward
+        if(forwardOne == empty) {
+            if(turn == WHITE && y == 1) {
+                //White promotion
+                for(int i = 0; i < 4; ++i) {
+                    addQuietMove(turn, moves, {
+                        .fromX = x,
+                        .fromY = y,
+                        .toX = x,
+                        .toY = y + pawnMoveDir,
+                        .promotion = promotionTypes[i]
+                    });
+                }
+            }
+            else if(turn == BLACK && y == 6) {
+                //Black promotion
+                for(int i = 0; i < 4; ++i) {
+                    addQuietMove(turn, moves, {
+                        .fromX = x,
+                        .fromY = y,
+                        .toX = x,
+                        .toY = y + pawnMoveDir,
+                        .promotion = promotionTypes[i]
+                    });
+                }
+            }
+            else {
                 addQuietMove(turn, moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x,
-                    .toY = y + pawnMoveDir,
-                    .promotion = promotionTypes[i]
+                    .toY = y + pawnMoveDir
                 });
             }
-        }
-        else if(turn == BLACK && y == 6) {
-            //Black promotion
-            for(int i = 0; i < 4; ++i) {
+
+            const Piece forwardTwo = PIECE_AT(y + (pawnMoveDir * 2), x);
+
+            //Double move forward from starting position
+            if(forwardTwo == empty && ((turn == BLACK && y == 1) || (turn == WHITE && y == 6))) {
                 addQuietMove(turn, moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x,
-                    .toY = y + pawnMoveDir,
-                    .promotion = promotionTypes[i]
+                    .toY = y + (pawnMoveDir * 2)
                 });
             }
-        }
-        else {
-            addQuietMove(turn, moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x,
-                .toY = y + pawnMoveDir
-            });
-        }
-
-        const Piece forwardTwo = PIECE_AT(y + (pawnMoveDir * 2), x);
-
-        //Double move forward from starting position
-        if(forwardTwo == empty && ((turn == BLACK && y == 1) || (turn == WHITE && y == 6))) {
-            addQuietMove(turn, moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x,
-                .toY = y + (pawnMoveDir * 2)
-            });
         }
     }
 }
 
-void Game::generateKnightMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y) {
+void Game::generateKnightMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     const int offsets[8][2] = {
@@ -667,7 +794,7 @@ void Game::generateKnightMoves(const Colour turn, std::vector<move>& moves, unsi
     for(int i = 0; i < 8; ++i) {
         Piece p = PIECE_AT(y + offsets[i][0], x + offsets[i][1]);
 
-        if(p == empty) {
+        if(p == empty && !capturesOnly) {
             addQuietMove(turn, moves, {
                 .fromX = x,
                 .fromY = y,
@@ -686,7 +813,7 @@ void Game::generateKnightMoves(const Colour turn, std::vector<move>& moves, unsi
     }
 }
 
-void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y) {
+void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     int yDirsDiag[2] = { -1, 1 };
@@ -708,7 +835,7 @@ void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsi
                     break;
                 }
 
-                if(p == empty) {
+                if(p == empty && !capturesOnly) {
                     addQuietMove(turn, moves, {
                         .fromX = x,
                         .fromY = y,
@@ -730,7 +857,7 @@ void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsi
     }
 }
 
-void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y) {
+void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     int yDirsNonDiag[4] = { -1, 1, 0, 0 };
@@ -750,7 +877,7 @@ void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsign
                 break;
             }
 
-            if(p == empty) {
+            if(p == empty && !capturesOnly) {
                 addQuietMove(turn, moves, {
                     .fromX = x,
                     .fromY = y,
@@ -771,12 +898,12 @@ void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsign
     }
 }
 
-void Game::generateQueenMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y) {
-    generateBishopMoves(turn, moves, x, y);
-    generateRookMoves(turn, moves, x, y);
+void Game::generateQueenMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    generateBishopMoves(turn, moves, x, y, capturesOnly);
+    generateRookMoves(turn, moves, x, y, capturesOnly);
 }
 
-void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y) {
+void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     const int offsets[8][2] = {
@@ -793,7 +920,7 @@ void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsign
     for(int i = 0; i < 8; ++i) {
         Piece p = PIECE_AT(y + offsets[i][1], x + offsets[i][0]);
 
-        if(p == empty && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
+        if(p == empty && !capturesOnly && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
             addQuietMove(turn, moves, {
                 .fromX = x,
                 .fromY = y,
@@ -813,60 +940,24 @@ void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsign
         }
     }
 
-    //Castling
-    if(turn == WHITE) {
-        if(currentState.castlePerm & K) {
-            unsigned int pathPositions[3][2] = {
-                { 7, 4 },
-                { 7, 5 },
-                { 7, 6 }
-            };
+    if(!capturesOnly) {
+        //Castling
+        if(turn == WHITE) {
+            if(currentState.castlePerm & K) {
+                unsigned int pathPositions[3][2] = {
+                    { 7, 4 },
+                    { 7, 5 },
+                    { 7, 6 }
+                };
 
-            bool canCastle = true;
-            
-            for(int i = 0; i < 3; ++i) {
-                Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
+                bool canCastle = true;
                 
-                if((i != 0 && p != empty) || isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
-                    canCastle = false;
-                    break;
-                }
-            }
-
-            if(canCastle) {
-                addQuietMove(turn, moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = 6,
-                    .toY = 7,
-                    .isCastle = true
-                });
-            }
-        }
-
-        if((currentState.castlePerm & Q) >> 1) {
-            unsigned int pathPositions[4][2] = {
-                { 7, 4 },
-                { 7, 3 },
-                { 7, 2 },
-                { 7, 1 },
-            };
-
-            bool canCastle = true;
-
-            for(int i = 1; i < 4; ++i) {
-                Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
-
-                if(p != empty) {
-                    canCastle = false;
-                    break;
-                }
-            }
-
-            if(canCastle) {
                 for(int i = 0; i < 3; ++i) {
-                    if(isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
+                    Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
+                    
+                    if((i != 0 && p != empty) || isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
                         canCastle = false;
+                        break;
                     }
                 }
 
@@ -874,67 +965,67 @@ void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsign
                     addQuietMove(turn, moves, {
                         .fromX = x,
                         .fromY = y,
-                        .toX = 2,
+                        .toX = 6,
                         .toY = 7,
                         .isCastle = true
                     });
                 }
             }
-        }
-    }
-    else {
-        if((currentState.castlePerm & k) >> 2) {
-            unsigned int pathPositions[3][2] = {
-                { 0, 4 },
-                { 0, 5 },
-                { 0, 6 }
-            };
 
-            bool canCastle = true;
-            
-            for(int i = 0; i < 3; ++i) {
-                Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
-                
-                if((i != 0 && p != empty) || isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
-                    canCastle = false;
-                    break;
-                }
-            }
+            if((currentState.castlePerm & Q) >> 1) {
+                unsigned int pathPositions[4][2] = {
+                    { 7, 4 },
+                    { 7, 3 },
+                    { 7, 2 },
+                    { 7, 1 },
+                };
 
-            if(canCastle) {
-                addQuietMove(turn, moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = 6,
-                    .toY = 0,
-                    .isCastle = true
-                });
-            }
-        }
+                bool canCastle = true;
 
-        if((currentState.castlePerm & q) >> 3) {
-            unsigned int pathPositions[4][2] = {
-                { 0, 4 },
-                { 0, 3 },
-                { 0, 2 },
-                { 0, 1 },
-            };
+                for(int i = 1; i < 4; ++i) {
+                    Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
 
-            bool canCastle = true;
-
-            for(int i = 1; i < 4; ++i) {
-                Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
-
-                if(p != empty) {
-                    canCastle = false;
-                    break;
-                }
-            }
-
-            if(canCastle) {
-                for(int i = 0; i < 3; ++i) {
-                    if(isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
+                    if(p != empty) {
                         canCastle = false;
+                        break;
+                    }
+                }
+
+                if(canCastle) {
+                    for(int i = 0; i < 3; ++i) {
+                        if(isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
+                            canCastle = false;
+                        }
+                    }
+
+                    if(canCastle) {
+                        addQuietMove(turn, moves, {
+                            .fromX = x,
+                            .fromY = y,
+                            .toX = 2,
+                            .toY = 7,
+                            .isCastle = true
+                        });
+                    }
+                }
+            }
+        }
+        else {
+            if((currentState.castlePerm & k) >> 2) {
+                unsigned int pathPositions[3][2] = {
+                    { 0, 4 },
+                    { 0, 5 },
+                    { 0, 6 }
+                };
+
+                bool canCastle = true;
+                
+                for(int i = 0; i < 3; ++i) {
+                    Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
+                    
+                    if((i != 0 && p != empty) || isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
+                        canCastle = false;
+                        break;
                     }
                 }
 
@@ -942,59 +1033,127 @@ void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsign
                     addQuietMove(turn, moves, {
                         .fromX = x,
                         .fromY = y,
-                        .toX = 2,
+                        .toX = 6,
                         .toY = 0,
                         .isCastle = true
                     });
+                }
+            }
+
+            if((currentState.castlePerm & q) >> 3) {
+                unsigned int pathPositions[4][2] = {
+                    { 0, 4 },
+                    { 0, 3 },
+                    { 0, 2 },
+                    { 0, 1 },
+                };
+
+                bool canCastle = true;
+
+                for(int i = 1; i < 4; ++i) {
+                    Piece p = PIECE_AT(pathPositions[i][0], pathPositions[i][1]);
+
+                    if(p != empty) {
+                        canCastle = false;
+                        break;
+                    }
+                }
+
+                if(canCastle) {
+                    for(int i = 0; i < 3; ++i) {
+                        if(isAttacked(pathPositions[i][1], pathPositions[i][0], (Colour)-turn)) {
+                            canCastle = false;
+                        }
+                    }
+
+                    if(canCastle) {
+                        addQuietMove(turn, moves, {
+                            .fromX = x,
+                            .fromY = y,
+                            .toX = 2,
+                            .toY = 0,
+                            .isCastle = true
+                        });
+                    }
                 }
             }
         }
     }
 }
 
-int Game::getScore(int turn, const std::vector<move>& availableMyMoves, const std::vector<move>& availableOpponentMoves) {
+int Game::getScore(int turn) {
     int score = 0;
 
-    //Material score
     for(int i = 0; i < 8; ++i) {
         for(int j = 0; j < 8; ++j) {
             Piece p = PIECE_AT(i, j);
 
             switch(p) {
+                //Black pieces
                 case bP: 
-                    score += 100;
-                    score += (((float)i - 1.0) / 6.0) * 30; //max 1/2 pawn value score for being on opposite side
+                    score += 100;    
+                    score += pawnPositionScores[7-i][j];
                     break;
-                case bN: score += 300; break;
-                case bB: score += 300; break;
-                case bR: score += 500; break;
-                case bQ: score += 900; break;
-                case bK: score += 100000; break;
+                case bN: 
+                    score += 320; 
+                    score += knightPositionScores[7-i][j];
+                    break;
+                case bB: 
+                    score += 330; 
+                    score += bishopPositionScores[7-i][j];
+                    break;
+                case bR: 
+                    score += 500; 
+                    score += rookPositionScores[7-i][j];
+                    break;
+                case bQ: 
+                    score += 900; 
+                    score += queenPositionScores[7-i][j];
+                    break;
+                case bK: 
+                    score += 100000; 
+                    score += kingPositionScores[7-i][j];
+                    break;
+
+                //White pieces
                 case wP: 
-                    score -= 100; 
-                    score -= ((6.0 - (float)i) / 6.0) * 30; //max 1/2 pawn value score for being on opposite side
+                    score -= 100;
+                    score -= pawnPositionScores[i][j];
                     break;
-                case wN: score -= 300; break;
-                case wB: score -= 300; break;
-                case wR: score -= 500; break;
-                case wQ: score -= 900; break;
-                case wK: score -= 100000; break;
+                case wN: 
+                    score -= 320;
+                    score -= knightPositionScores[i][j];
+                    break;
+                case wB: 
+                    score -= 330; 
+                    score -= bishopPositionScores[i][j];
+                    break;
+                case wR: 
+                    score -= 500;
+                    score -= rookPositionScores[i][j];
+                    break;
+                case wQ: 
+                    score -= 900; 
+                    score -= queenPositionScores[i][j];
+                    break;
+                case wK: 
+                    score -= 100000;
+                    score -= kingPositionScores[i][j];
+                    break;
                 default: break;
             }
         }
     }
 
-    //Mobility score
-    score += -turn * (availableMyMoves.size() - availableOpponentMoves.size());
+    //Mobility score?
 
     //Protect king
 
     //Sentries
 
-    //Queens,Rooks to 7th/1st
+    //Pawn structure (isolated, blocked)
 
-    //TODO: Always score from BLACK perspective? Maybe change to player perspective to also simplify negamax.
-    return score;
+    return -turn * score;
 }
 
 void Game::print() {
@@ -1011,6 +1170,6 @@ void Game::print() {
     // printf("Fifty: %d\n", fiftyMove);
     printf("En-passant: %d, %d\n", currentState.enPass.x, currentState.enPass.y);
     printf("Castling: K:%d Q:%d k:%d q:%d\n", (currentState.castlePerm & K), (currentState.castlePerm & Q) >> 1, (currentState.castlePerm & k) >> 2, (currentState.castlePerm & q) >> 3);
-    printf("Hash code: %zu\n", currentState.hashCode);
+    printf("Hash code: %llu\n", currentState.hashCode);
     printf("\n");
 }
