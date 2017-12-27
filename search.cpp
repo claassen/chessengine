@@ -1,5 +1,6 @@
 #include "search.h"
 #include "pvtable.h"
+#include "evaluation.h"
 #include "debug.h"
 
 #include "utils.h"
@@ -19,12 +20,12 @@ bool isThreeRepetition(Game* game) {
     return count > 1;
 }
 
-const int quiesce(Game* game, int alpha, int beta, Colour turn, volatile bool* stop) {
+const int quiesce(Game* game, int alpha, int beta, volatile bool* stop) {
     if(*stop) {
         return 0;
     }
 
-    int score = game->getScore(turn);
+    int score = evaluate(game);
 
     if(score >= beta) {  
         return score;
@@ -38,7 +39,7 @@ const int quiesce(Game* game, int alpha, int beta, Colour turn, volatile bool* s
     move pvMove = pvEntry.move;
 
     move_list captureMoves;
-    game->generateMoves(turn, captureMoves, true);
+    game->generateMoves(captureMoves, true);
 
     if(pvEntry.move != NO_MOVE && std::find(captureMoves.moves, captureMoves.moves + captureMoves.numMoves, pvMove) != captureMoves.moves + captureMoves.numMoves) {
         //There is still a small potential for hash collisions, need to check to make sure this move is actually an available move
@@ -47,6 +48,8 @@ const int quiesce(Game* game, int alpha, int beta, Colour turn, volatile bool* s
     }
 
     std::sort(captureMoves.moves, captureMoves.moves + captureMoves.numMoves, [](const move& a, const move& b) { return a.score > b.score; });
+
+    int turn = game->currentState.turn;
 
     for(int i = 0; i < captureMoves.numMoves; ++i) {
         const move m = captureMoves.moves[i];
@@ -58,7 +61,7 @@ const int quiesce(Game* game, int alpha, int beta, Colour turn, volatile bool* s
             continue;
         }
 
-        int score = -quiesce(game, -beta, -alpha, (Colour)-turn, stop);
+        int score = -quiesce(game, -beta, -alpha, stop);
 
         game->undoLastMove();
 
@@ -76,7 +79,7 @@ const int quiesce(Game* game, int alpha, int beta, Colour turn, volatile bool* s
     return alpha;
 }
 
-const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour turn, int ply, volatile bool* stop) {
+const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, int ply, volatile bool* stop) {
     if(*stop) {
         return 0;
     }
@@ -101,12 +104,14 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
         }
     }
 
+    int turn = game->currentState.turn;
+
     if(depth == 0) {
-        return quiesce(game, alpha, beta, turn, stop);
+        return quiesce(game, alpha, beta, stop);
     }
 
     move_list moves;
-    game->generateMoves(turn, moves, false);
+    game->generateMoves(moves, false);
 
     move pvMove = pvEntry.move;
 
@@ -139,7 +144,7 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
         anyMoves = true;
 
         move _nextMove;
-        int score = -alphaBeta(game, _nextMove, depth - 1, -beta, -alpha, (Colour)-turn, ply + 1, stop);
+        int score = -alphaBeta(game, _nextMove, depth - 1, -beta, -alpha, ply + 1, stop);
 
         game->undoLastMove();
 

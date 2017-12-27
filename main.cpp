@@ -24,11 +24,10 @@ std::mutex search_done_m;
 std::condition_variable search_done_cond;
 
 volatile bool stopSearch = false;
+volatile bool stopPonder = false;
 
 void search(move* bestMove) {
     std::lock_guard<std::mutex> gameStateLock(game_state_m);
-
-    Colour turn = game->currentState.turn;
 
     for(int depth = 1; depth <= MAX_SEARCH_DEPTH; ++depth) {
         if(stopSearch) {
@@ -36,7 +35,7 @@ void search(move* bestMove) {
         }
 
         move m;
-        int score = alphaBeta(game, m, depth, -INFINITY, INFINITY, turn, 1, &stopSearch);      
+        int score = alphaBeta(game, m, depth, -INFINITY, INFINITY, 1, &stopSearch);      
 
         if(!stopSearch) {
             std::cout << "info depth " << depth << " score cp " << ((float)score/1.0) << " pv";
@@ -58,9 +57,20 @@ void search(move* bestMove) {
     search_done_cond.notify_all();
 }
 
+void ponder() {
+    std::lock_guard<std::mutex> gameStateLock(game_state_m);
+
+    for(int depth = 1; depth <= MAX_SEARCH_DEPTH; ++depth) {
+        if(stopPonder) {
+            break;
+        }
+
+        move m;
+        alphaBeta(game, m, depth, -INFINITY, INFINITY, 1, &stopPonder);
+    }
+}
+
 void go(const std::string& input, int timeInMs) {
-    //TODO: Allow taking longer when in check
-    
     if(!searchDone) {
         std::unique_lock<std::mutex> searchDoneLock(search_done_m);
         while(!searchDone) {
@@ -89,9 +99,18 @@ void go(const std::string& input, int timeInMs) {
     }
 
     std::cout << "bestmove " << getMoveStr(bestMove) << std::endl;
+
+    game->makeMove(bestMove);
+
+    stopPonder = false;
+
+    std::thread ponderThread(ponder);
+    ponderThread.detach();
 }
 
 void position(const std::string& input) {
+    stopPonder = true;
+
     std::lock_guard<std::mutex> lock(game_state_m);
 
     std::vector<std::string> moves;
@@ -196,10 +215,6 @@ int main() {
         else if(input.substr(0, 4).compare("move") == 0) {
             std::string move = input.substr(5);
             game->makeMove(move);
-        }
-        else if(input.compare("score") == 0) {
-            std::cout << "Score black: " << game->getScore(BLACK) << std::endl;
-            std::cout << "Score white: " << game->getScore(WHITE) << std::endl;
         }
     }
 }

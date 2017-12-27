@@ -11,81 +11,6 @@
 #define PIECE_AT(row, col)         (currentState.board[row + 2][col + 2])
 #define MOVE_IS_ALLOWED(turn)  ((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck))
 
-//Piece location scores in white's perspective
-
-//Pawns should move toward opposite end, also encourage the 2 center pawns to move out
-const int pawnPositionScores[8][8] = {
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {  10,  10,  10,  10,  10,  10,  10,  10 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,   0,   0, -10, -10,   0,   0,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 }
-};
-
-//Knights should stay away from edges and move towards center
-const int knightPositionScores[8][8] = {
-    { -10, -10, -10, -10, -10, -10, -10, -10 },
-    { -10,   5,   5,   5,   5,   5,   5, -10 },
-    { -10,   5,  10,  10,  10,  10,   5, -10 },
-    { -10,   5,  10,  20,  20,  10,   5, -10 },
-    { -10,   5,  10,  20,  20,  10,   5, -10 },
-    { -10,   5,  10,  10,  10,  10,   5, -10 },
-    { -10,   5,   5,   5,   5,   5,   5, -10 },
-    { -10, -10, -10, -10, -10, -10, -10, -10 }
-};
-
-//Bishops should move towards center
-const int bishopPositionScores[8][8] = {
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,   5,   5,   5,   5,   5,   5,   0 },
-    {   0,   5,  10,  10,  10,  10,   5,   0 },
-    {   0,   5,  10,  20,  20,  10,   5,   0 },
-    {   0,   5,  10,  20,  20,  10,   5,   0 },
-    {   0,   5,  10,  10,  10,  10,   5,   0 },
-    {   0,   5,   5,   5,   5,   5,   5,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 }
-};
-
-//Rooks should try to guard edges? Not really sure on this one
-const int rookPositionScores[8][8] = {
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,  10,  10,  10,  10,  10,  10,   0 },
-    {   0,  10,   0,   0,   0,   0,  10,   0 },
-    {   0,  10,   0,   0,   0,   0,  10,   0 },
-    {   0,  10,   0,   0,   0,   0,  10,   0 },
-    {   0,  10,   0,   0,   0,   0,  10,   0 },
-    {   0,  10,  10,  10,  10,  10,  10,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 }
-};
-
-//Queen should move towards center
-const int queenPositionScores[8][8] = {
-    {   0,   0,   0,   0,   0,   0,   0,   0 },
-    {   0,   5,   5,   5,   5,   5,   5,   0 },
-    {   0,   5,  10,  10,  10,  10,   5,   0 },
-    {   0,   5,  10,  20,  20,  10,   5,   0 },
-    {   0,   5,  10,  20,  20,  10,   5,   0 },
-    {   0,   5,  10,  10,  10,  10,   5,   0 },
-    {   0,   5,   5,   5,   5,   5,   5,   0 },
-    {   0,   0,   0,   0,   0,   0,   0,   0 }
-};
-
-//TODO: Need different scores for end game
-//King should stay back and try to castle and avoid corners
-const int kingPositionScores[8][8] = {
-    {-100,  -5,  -5,  -5,  -5,  -5,  -5,-100 },
-    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
-    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
-    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
-    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
-    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
-    {  -5,  -5,  -5,  -5,  -5,  -5,  -5,  -5 },
-    {-100,   0,  10,   0,   0,   0,  10,-100 }
-};
-
 const PieceType pieceTypes[14] = {
     Empty,
     Pawn,
@@ -536,7 +461,7 @@ const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attacki
     return false;
 }
 
-void Game::addQuietMove(const Colour turn, move_list& moveList, move move) {
+void Game::addQuietMove(move_list& moveList, move move) {
     assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
 
     move.score = move.isCastle ? 100 : 0;
@@ -544,7 +469,7 @@ void Game::addQuietMove(const Colour turn, move_list& moveList, move move) {
     moveList.addMove(move);
 }
 
-void Game::addCaptureMove(const Colour turn, move_list& moveList, move move, const Piece pieceMoved, const Piece capturedPiece) {
+void Game::addCaptureMove(move_list& moveList, move move, const Piece pieceMoved, const Piece capturedPiece) {
     assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
     assert(pieceMoved != empty);
     assert(pieceMoved != off_board);
@@ -560,33 +485,33 @@ void Game::addCaptureMove(const Colour turn, move_list& moveList, move move, con
     moveList.addMove(move);
 }
 
-void Game::generateMoves(const Colour turn, move_list& moveList, bool capturesOnly) {
+void Game::generateMoves(move_list& moveList, bool capturesOnly) {
     for(unsigned int i = 0; i < 8; i++) {
         for (unsigned int j = 0; j < 8; j++) {
             Piece p = PIECE_AT(i, j);
 
-            if(pieceColours[p] != turn) {
+            if(pieceColours[p] != currentState.turn) {
                 continue;
             }
 
             switch(pieceTypes[p]) {
                 case Pawn: 
-                    generatePawnMoves(turn, moveList, j, i, capturesOnly);
+                    generatePawnMoves(moveList, j, i, capturesOnly);
                     break;
                 case Knight:
-                    generateKnightMoves(turn, moveList, j, i, capturesOnly);
+                    generateKnightMoves(moveList, j, i, capturesOnly);
                     break;
                 case Bishop:
-                    generateBishopMoves(turn, moveList, j, i, capturesOnly);
+                    generateBishopMoves(moveList, j, i, capturesOnly);
                     break;
                 case Rook:
-                    generateRookMoves(turn, moveList, j, i, capturesOnly);
+                    generateRookMoves(moveList, j, i, capturesOnly);
                     break;
                 case Queen:
-                    generateQueenMoves(turn, moveList, j, i, capturesOnly);
+                    generateQueenMoves(moveList, j, i, capturesOnly);
                     break;  
                 case King:
-                    generateKingMoves(turn, moveList, j, i, capturesOnly);
+                    generateKingMoves(moveList, j, i, capturesOnly);
                     break;
                 default:
                     break;
@@ -595,7 +520,9 @@ void Game::generateMoves(const Colour turn, move_list& moveList, bool capturesOn
     }
 }
 
-void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    const Colour turn = currentState.turn;
+
     Piece piece = PIECE_AT(y, x);
 
     const int pawnMoveDir = turn == BLACK ? 1 : -1;
@@ -609,7 +536,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
 
         assert(enPassPiece != empty);
 
-        addCaptureMove(turn, moves, {
+        addCaptureMove(moves, {
             .fromX = x,
             .fromY = y,
             .toX = x - 1,
@@ -623,7 +550,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
         if(turn == WHITE && y == 1) {
             //Promotion white
             for(int i = 0; i < 4; ++i) {
-                addCaptureMove(turn, moves, {
+                addCaptureMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x - 1,
@@ -635,7 +562,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
         else if(turn == BLACK && y == 6) {
             //Promotion black
             for(int i = 0; i < 4; ++i) {
-                addCaptureMove(turn, moves, {
+                addCaptureMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x - 1,
@@ -645,7 +572,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
             }
         }
         else {
-            addCaptureMove(turn, moves, {
+            addCaptureMove(moves, {
                 .fromX = x,
                 .fromY = y,
                 .toX = x - 1,
@@ -660,7 +587,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
 
         assert(enPassPiece != empty);
 
-        addCaptureMove(turn, moves, {
+        addCaptureMove(moves, {
             .fromX = x,
             .fromY = y,
             .toX = x + 1,
@@ -673,7 +600,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
 
         if(turn == WHITE && y == 1) {
             for(int i = 0; i < 4; ++i) {
-                addCaptureMove(turn, moves, {
+                addCaptureMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x + 1,
@@ -684,7 +611,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
         }
         else if(turn == BLACK && y == 6) {
             for(int i = 0; i < 4; ++i) {
-                addCaptureMove(turn, moves, {
+                addCaptureMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x + 1,
@@ -694,7 +621,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
             }
         }
         else {
-            addCaptureMove(turn, moves, {
+            addCaptureMove(moves, {
                 .fromX = x,
                 .fromY = y,
                 .toX = x + 1,
@@ -711,7 +638,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
             if(turn == WHITE && y == 1) {
                 //White promotion
                 for(int i = 0; i < 4; ++i) {
-                    addQuietMove(turn, moves, {
+                    addQuietMove(moves, {
                         .fromX = x,
                         .fromY = y,
                         .toX = x,
@@ -723,7 +650,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
             else if(turn == BLACK && y == 6) {
                 //Black promotion
                 for(int i = 0; i < 4; ++i) {
-                    addQuietMove(turn, moves, {
+                    addQuietMove(moves, {
                         .fromX = x,
                         .fromY = y,
                         .toX = x,
@@ -733,7 +660,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
                 }
             }
             else {
-                addQuietMove(turn, moves, {
+                addQuietMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x,
@@ -745,7 +672,7 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
 
             //Double move forward from starting position
             if(forwardTwo == empty && ((turn == BLACK && y == 1) || (turn == WHITE && y == 6))) {
-                addQuietMove(turn, moves, {
+                addQuietMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = x,
@@ -756,7 +683,9 @@ void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x
     }
 }
 
-void Game::generateKnightMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateKnightMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    const Colour turn = currentState.turn;
+
     Piece piece = PIECE_AT(y, x);
 
     const int offsets[8][2] = {
@@ -774,7 +703,7 @@ void Game::generateKnightMoves(const Colour turn, move_list& moves, unsigned int
         Piece p = PIECE_AT(y + offsets[i][0], x + offsets[i][1]);
 
         if(p == empty && !capturesOnly) {
-            addQuietMove(turn, moves, {
+            addQuietMove(moves, {
                 .fromX = x,
                 .fromY = y,
                 .toX = x + offsets[i][1],
@@ -782,7 +711,7 @@ void Game::generateKnightMoves(const Colour turn, move_list& moves, unsigned int
             });
         }
         else if(pieceColours[p] == -turn) {
-            addCaptureMove(turn, moves, {
+            addCaptureMove(moves, {
                 .fromX = x,
                 .fromY = y,
                 .toX = x + offsets[i][1],
@@ -792,7 +721,9 @@ void Game::generateKnightMoves(const Colour turn, move_list& moves, unsigned int
     }
 }
 
-void Game::generateBishopMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateBishopMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    const Colour turn = currentState.turn;
+
     Piece piece = PIECE_AT(y, x);
 
     int yDirsDiag[2] = { -1, 1 };
@@ -815,7 +746,7 @@ void Game::generateBishopMoves(const Colour turn, move_list& moves, unsigned int
                 }
 
                 if(p == empty && !capturesOnly) {
-                    addQuietMove(turn, moves, {
+                    addQuietMove(moves, {
                         .fromX = x,
                         .fromY = y,
                         .toX = (unsigned int)searchX,
@@ -823,7 +754,7 @@ void Game::generateBishopMoves(const Colour turn, move_list& moves, unsigned int
                     });
                 }
                 else if(pieceColours[p] == -turn) {
-                    addCaptureMove(turn, moves, {
+                    addCaptureMove(moves, {
                         .fromX = x,
                         .fromY = y,
                         .toX = (unsigned int)searchX,
@@ -836,7 +767,9 @@ void Game::generateBishopMoves(const Colour turn, move_list& moves, unsigned int
     }
 }
 
-void Game::generateRookMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateRookMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    const Colour turn = currentState.turn;
+
     Piece piece = PIECE_AT(y, x);
 
     int yDirsNonDiag[4] = { -1, 1, 0, 0 };
@@ -857,7 +790,7 @@ void Game::generateRookMoves(const Colour turn, move_list& moves, unsigned int x
             }
 
             if(p == empty && !capturesOnly) {
-                addQuietMove(turn, moves, {
+                addQuietMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = (unsigned int)searchX,
@@ -865,7 +798,7 @@ void Game::generateRookMoves(const Colour turn, move_list& moves, unsigned int x
                 });
             }
             else if(pieceColours[p] == -turn) {
-                addCaptureMove(turn, moves, {
+                addCaptureMove(moves, {
                     .fromX = x,
                     .fromY = y,
                     .toX = (unsigned int)searchX,
@@ -877,12 +810,14 @@ void Game::generateRookMoves(const Colour turn, move_list& moves, unsigned int x
     }
 }
 
-void Game::generateQueenMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
-    generateBishopMoves(turn, moves, x, y, capturesOnly);
-    generateRookMoves(turn, moves, x, y, capturesOnly);
+void Game::generateQueenMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    generateBishopMoves(moves, x, y, capturesOnly);
+    generateRookMoves(moves, x, y, capturesOnly);
 }
 
-void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+    const Colour turn = currentState.turn;
+
     Piece piece = PIECE_AT(y, x);
 
     const int offsets[8][2] = {
@@ -900,7 +835,7 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
         Piece p = PIECE_AT(y + offsets[i][1], x + offsets[i][0]);
 
         if(p == empty && !capturesOnly && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
-            addQuietMove(turn, moves, {
+            addQuietMove(moves, {
                 .fromX = x,
                 .fromY = y,
                 .toX = x + offsets[i][0],
@@ -910,7 +845,7 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
         else if(p != off_board && pieceColours[p] == -turn && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
             assert(p != empty);
 
-            addCaptureMove(turn, moves, {
+            addCaptureMove(moves, {
                 .fromX = x,
                 .fromY = y,
                 .toX = x + offsets[i][0],
@@ -941,7 +876,7 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
                 }
 
                 if(canCastle) {
-                    addQuietMove(turn, moves, {
+                    addQuietMove(moves, {
                         .fromX = x,
                         .fromY = y,
                         .toX = 6,
@@ -978,7 +913,7 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
                     }
 
                     if(canCastle) {
-                        addQuietMove(turn, moves, {
+                        addQuietMove(moves, {
                             .fromX = x,
                             .fromY = y,
                             .toX = 2,
@@ -1009,7 +944,7 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
                 }
 
                 if(canCastle) {
-                    addQuietMove(turn, moves, {
+                    addQuietMove(moves, {
                         .fromX = x,
                         .fromY = y,
                         .toX = 6,
@@ -1046,7 +981,7 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
                     }
 
                     if(canCastle) {
-                        addQuietMove(turn, moves, {
+                        addQuietMove(moves, {
                             .fromX = x,
                             .fromY = y,
                             .toX = 2,
@@ -1058,81 +993,6 @@ void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x
             }
         }
     }
-}
-
-int Game::getScore(int turn) {
-    int score = 0;
-
-    for(int i = 0; i < 8; ++i) {
-        for(int j = 0; j < 8; ++j) {
-            Piece p = PIECE_AT(i, j);
-
-            switch(p) {
-                //Black pieces
-                case bP: 
-                    score += 100;    
-                    score += pawnPositionScores[7-i][j];
-                    break;
-                case bN: 
-                    score += 320; 
-                    score += knightPositionScores[7-i][j];
-                    break;
-                case bB: 
-                    score += 330; 
-                    score += bishopPositionScores[7-i][j];
-                    break;
-                case bR: 
-                    score += 500; 
-                    score += rookPositionScores[7-i][j];
-                    break;
-                case bQ: 
-                    score += 900; 
-                    score += queenPositionScores[7-i][j];
-                    break;
-                case bK: 
-                    score += 100000; 
-                    score += kingPositionScores[7-i][j];
-                    break;
-
-                //White pieces
-                case wP: 
-                    score -= 100;
-                    score -= pawnPositionScores[i][j];
-                    break;
-                case wN: 
-                    score -= 320;
-                    score -= knightPositionScores[i][j];
-                    break;
-                case wB: 
-                    score -= 330; 
-                    score -= bishopPositionScores[i][j];
-                    break;
-                case wR: 
-                    score -= 500;
-                    score -= rookPositionScores[i][j];
-                    break;
-                case wQ: 
-                    score -= 900; 
-                    score -= queenPositionScores[i][j];
-                    break;
-                case wK: 
-                    score -= 100000;
-                    score -= kingPositionScores[i][j];
-                    break;
-                default: break;
-            }
-        }
-    }
-
-    //Mobility score?
-
-    //Protect king
-
-    //Sentries
-
-    //Pawn structure (isolated, blocked)
-
-    return -turn * score;
 }
 
 void Game::print() {

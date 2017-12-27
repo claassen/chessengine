@@ -15,7 +15,7 @@ void perft(Game* game, int depth) {
     }
 
     move_list moves;
-    game->generateMoves(game->currentState.turn, moves, false);
+    game->generateMoves(moves, false);
 
     for(int i = 0; i < moves.numMoves; ++i) {
         const move m = moves.moves[i];
@@ -85,14 +85,14 @@ void perftTestSuite(Game* game) {
         std::cout << std::endl;
     }
 
-    printf("\nPerft test suite complete.\n");
+    printf("Perft test suite complete.\n");
 }
 
 void perftDivide(Game* game, int depth) {
     std::cout << std::endl;
 
     move_list moves;
-    game->generateMoves(game->currentState.turn, moves, false);
+    game->generateMoves(moves, false);
 
     int totalNodes = 0;
 
