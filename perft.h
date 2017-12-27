@@ -3,7 +3,7 @@
 
 #include "game.h"
 
-void perft(Game* game, int depth, move& moveMade);
+void perft(Game* game, int depth);
 void perftTestSuite(Game* game);
 void perftDivide(Game* game, int depth);
 

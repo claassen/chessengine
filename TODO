@@ -2,10 +2,9 @@ TODO:
 
 - Detect 3 repetition [DONE]
 - Purposely take 3 repetition for draw when losing
-- Detect 50 move
 - Fix mobility scoring
 - Use 12x12 board for performance to avoid bounds checks [DONE]
-- Switch to plain arrays for moves list
+- Switch to plain arrays for moves list [DONE]
 - Deal with not just playing as black [DONE]
 - Score castling moves higher [DONE]
 - Score castled positions higher
@@ -19,4 +18,5 @@ TODO:
 - Quiescence [DONE]
 - Transposition tables [DONE]
 - Zobrist hashing [DONE]
-- Incremental hash updates instead of full hash calculation
+- Incremental hash updates instead of full hash calculation [DONE]
+- Pondering

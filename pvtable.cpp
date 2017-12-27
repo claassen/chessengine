@@ -74,7 +74,7 @@ void getPvLine(Game* game, std::vector<move>& pvMoves, int depth) {
         return;
     }
 
-    std::vector<move> availableMoves;
+    move_list availableMoves;
     game->generateMoves(game->currentState.turn, availableMoves, false);
 
     pv_entry pvEntry = getPvEntry(game->currentState);
@@ -83,7 +83,7 @@ void getPvLine(Game* game, std::vector<move>& pvMoves, int depth) {
         return;
     }
 
-    if(std::find(availableMoves.begin(), availableMoves.end(), pvEntry.move) == availableMoves.end()) {
+    if(std::find(availableMoves.moves, availableMoves.moves + availableMoves.numMoves, pvEntry.move) == availableMoves.moves + availableMoves.numMoves) {
         return;
     }
 

@@ -37,19 +37,21 @@ const int quiesce(Game* game, int alpha, int beta, Colour turn, volatile bool* s
     pv_entry pvEntry = getPvEntry(game->currentState);
     move pvMove = pvEntry.move;
 
-    std::vector<move> captureMoves;
+    move_list captureMoves;
     game->generateMoves(turn, captureMoves, true);
 
-    if(pvEntry.move != NO_MOVE && std::find(captureMoves.begin(), captureMoves.end(), pvMove) != captureMoves.end()) {
+    if(pvEntry.move != NO_MOVE && std::find(captureMoves.moves, captureMoves.moves + captureMoves.numMoves, pvMove) != captureMoves.moves + captureMoves.numMoves) {
         //There is still a small potential for hash collisions, need to check to make sure this move is actually an available move
         pvMove.score = MOVE_SCORE_PV;
-        captureMoves.insert(captureMoves.begin(), pvMove);
+        captureMoves.addMove(pvMove);
     }
 
-    std::sort(captureMoves.begin(), captureMoves.end(), [](const move& a, const move& b) { return a.score > b.score; });
+    std::sort(captureMoves.moves, captureMoves.moves + captureMoves.numMoves, [](const move& a, const move& b) { return a.score > b.score; });
 
-    for(auto it = captureMoves.begin(); it != captureMoves.end(); ++it) {
-        game->makeMove(*it);
+    for(int i = 0; i < captureMoves.numMoves; ++i) {
+        const move m = captureMoves.moves[i];
+
+        game->makeMove(m);
 
         if((turn == WHITE && game->currentState.whiteInCheck) || (turn == BLACK && game->currentState.blackInCheck)) {
             game->undoLastMove();
@@ -82,7 +84,7 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
     if(isThreeRepetition(game)) {
         return 0;
     }
-
+    
     pv_entry pvEntry = getPvEntry(game->currentState);
 
     if(pvEntry != NO_PV_ENTRY && pvEntry.depth >= depth) {
@@ -103,26 +105,26 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, Colour
         return quiesce(game, alpha, beta, turn, stop);
     }
 
-    std::vector<move> moves;
+    move_list moves;
     game->generateMoves(turn, moves, false);
 
     move pvMove = pvEntry.move;
 
-    if(pvEntry.move != NO_MOVE && std::find(moves.begin(), moves.end(), pvMove) != moves.end()) {
+    if(pvEntry.move != NO_MOVE && std::find(moves.moves, moves.moves + moves.numMoves, pvMove) != moves.moves + moves.numMoves) {
         //There is still a small potential for hash collisions, need to check to make sure this move is actually an available move
         pvMove.score = MOVE_SCORE_PV;
-        moves.insert(moves.begin(), pvMove);
+        moves.addMove(pvMove);
     }
 
-    std::sort(moves.begin(), moves.end(), [](const move& a, const move& b) { return a.score > b.score; });
+    std::sort(moves.moves, moves.moves + moves.numMoves, [](const move& a, const move& b) { return a.score > b.score; });
 
     int bestScore = -INFINITY;
     move bestMove = NO_MOVE;
     bool anyMoves = false;
     int oldAlpha = alpha;
 
-    for(auto it = moves.begin(); it != moves.end(); ++it) {
-        move m = *it;
+    for(int i = 0; i < moves.numMoves; ++i) {
+        const move m = moves.moves[i];
 
         game->makeMove(m);
 

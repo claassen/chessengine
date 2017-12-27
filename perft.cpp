@@ -8,17 +8,19 @@
 
 static long leafNodes = 0;
 
-void perft(Game* game, int depth, move& moveMade) {
+void perft(Game* game, int depth) {
     if(depth == 0) {
         leafNodes++;
         return;
     }
 
-    std::vector<move> moves;
+    move_list moves;
     game->generateMoves(game->currentState.turn, moves, false);
 
-    for(auto it = moves.begin(); it != moves.end(); ++it) {
-        game->makeMove(*it);
+    for(int i = 0; i < moves.numMoves; ++i) {
+        const move m = moves.moves[i];
+
+        game->makeMove(m);
 
         Colour turnBeforeMove = (Colour)-game->currentState.turn;
 
@@ -28,7 +30,7 @@ void perft(Game* game, int depth, move& moveMade) {
             continue;
         }
 
-        perft(game, depth - 1, *it);
+        perft(game, depth - 1);
 
         game->undoLastMove();
     } 
@@ -37,8 +39,6 @@ void perft(Game* game, int depth, move& moveMade) {
 void perftTestSuite(Game* game) {
     std::ifstream infile("perftsuite.epd");
     std::string line;
-
-    move noMove;
 
     while(std::getline(infile, line)) {
         if(line.substr(0, 2).compare("//") == 0) {
@@ -72,7 +72,7 @@ void perftTestSuite(Game* game) {
 
             game->startPosition(fen);
 
-            perft(game, i, noMove);
+            perft(game, i);
 
             printf("Depth: %d, nodes: %ld\n", i, leafNodes);
 
@@ -84,20 +84,23 @@ void perftTestSuite(Game* game) {
 
         std::cout << std::endl;
     }
+
+    printf("\nPerft test suite complete.\n");
 }
 
 void perftDivide(Game* game, int depth) {
     std::cout << std::endl;
 
-    std::vector<move> moves;
+    move_list moves;
     game->generateMoves(game->currentState.turn, moves, false);
 
     int totalNodes = 0;
 
-    for(auto it = moves.begin(); it != moves.end(); ++it) {
+    for(int i = 0; i < moves.numMoves; ++i) {
+        const move m = moves.moves[i];
         leafNodes = 0;
 
-        game->makeMove(*it);
+        game->makeMove(m);
 
         Colour turnBeforeMove = (Colour)-game->currentState.turn;
 
@@ -107,11 +110,11 @@ void perftDivide(Game* game, int depth) {
             continue;
         }
 
-        perft(game, depth - 1, *it);
+        perft(game, depth - 1);
 
         game->undoLastMove();
 
-        std::cout << getMoveStr(*it) << ": " << leafNodes << std::endl;
+        std::cout << getMoveStr(m) << ": " << leafNodes << std::endl;
 
         totalNodes += leafNodes;
     }

@@ -116,10 +116,6 @@ const CastlePerm getCastlePerm(const char c) {
 
 const enPassLocation getEnPassLocation(const char c1, const char c2) {
     return EN_PASS((unsigned int)(c1 - 'a'), (unsigned int)(7 - (c2 - '0' - 1)));
-    // return {
-    //     .x = (unsigned int)(c1 - 'a'),
-    //     .y = (unsigned int)(7 - (c2 - '0' - 1))
-    // };
 }
 
 const std::string getMoveStr(const move& move) {

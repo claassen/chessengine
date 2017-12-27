@@ -139,7 +139,6 @@ const int MvvLVA [7][7] = {
 };
 
 void Game::startPosition(const std::string& fen) {
-    // stateHistory = std::stack<gameState, std::vector<gameState>>();
     stateHistory = std::vector<gameState>();
 
     currentState.turn = WHITE;
@@ -250,44 +249,47 @@ void Game::makeMove(const std::string& move) {
 void Game::makeMove(const move& m) {
     stateHistory.push_back(currentState);
 
-    //Take out enPass location from hash
-    // currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
-
-    //Take out previous castle permissions from hash
-    // currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
-
-    //Take out turn from hash
-    // currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
+    //Hash update
+    currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
+    currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
+    currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
 
     const Piece p = PIECE_AT(m.fromY, m.fromX);
     const Piece capturedPiece = PIECE_AT(m.toY, m.toX);
 
-    if(p == bP || p == wP || PIECE_AT(m.toY, m.toX) != empty || (currentState.enPass != NO_EN_PASS && m.toX == currentState.enPass.x && m.toY == currentState.enPass.y)) {
-        //Pawn move or capture, reset 50 move rule
-        currentState.fiftyMove = 0;
-    }
-    else {
-        ++currentState.fiftyMove;
+    //Don't actually care about 50 move rule
+    // if(p == bP || p == wP || PIECE_AT(m.toY, m.toX) != empty || (currentState.enPass != NO_EN_PASS && m.toX == currentState.enPass.x && m.toY == currentState.enPass.y)) {
+    //     //Pawn move or capture, reset 50 move rule
+    //     currentState.fiftyMove = 0;
+    // }
+    // else {
+    //     ++currentState.fiftyMove;
+    // }
+
+    //Remove captured piece from hash
+    if(capturedPiece != empty) {
+        currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][capturedPiece];
     }
 
     //Move piece
-    //Add new piece location to hash
     if(m.promotion != Empty) {
         Piece promotion = getPiece(m.promotion, currentState.turn);
-        // currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][promotion];    
+        currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][promotion];    
         SET_PIECE(m.toY, m.toX, promotion);
     }
     else {
-        // currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][p];
+        currentState.hashCode ^= zobrist::pieceHashes[m.toY][m.toX][p];
         SET_PIECE(m.toY, m.toX, p);
     }
 
     //En passant capture
     if(currentState.enPass != NO_EN_PASS && pieceTypes[p] == Pawn && m.toX == currentState.enPass.x && m.toY == currentState.enPass.y) {
         if(currentState.turn == WHITE) {
+            currentState.hashCode ^= zobrist::pieceHashes[currentState.enPass.y + 1][currentState.enPass.x][bP];
             SET_PIECE(currentState.enPass.y + 1, currentState.enPass.x, empty);
         }
         else {
+            currentState.hashCode ^= zobrist::pieceHashes[currentState.enPass.y - 1][currentState.enPass.x][wP];
             SET_PIECE(currentState.enPass.y - 1, currentState.enPass.x, empty);
         }
 
@@ -295,8 +297,7 @@ void Game::makeMove(const move& m) {
     }
 
     //Remove piece from old location
-    //Take out old piece location from hash
-    // currentState.hashCode ^= zobrist::pieceHashes[m.fromY][m.fromX][p];
+    currentState.hashCode ^= zobrist::pieceHashes[m.fromY][m.fromX][p];
     SET_PIECE(m.fromY, m.fromX, empty);
 
     //Update castling permissions for captured rooks
@@ -317,35 +318,35 @@ void Game::makeMove(const move& m) {
         }
     }
 
-    //Castling
+    //Move rooks for castling
     if(p == bK && m.toX == m.fromX - 2) {
         //Black king side
-        // currentState.hashCode ^= zobrist::pieceHashes[0][m.toX + 1][bR];
-        // currentState.hashCode ^= zobrist::pieceHashes[0][0][bR];
+        currentState.hashCode ^= zobrist::pieceHashes[0][m.toX + 1][bR];
+        currentState.hashCode ^= zobrist::pieceHashes[0][0][bR];
         currentState.castlePerm &= ~q;
         SET_PIECE(0, m.toX + 1, bR);
         SET_PIECE(0, 0, empty);
     }
     else if(p == bK && m.toX == m.fromX + 2) {
         //Black queen side
-        // currentState.hashCode ^= zobrist::pieceHashes[0][m.toX - 1][bR];
-        // currentState.hashCode ^= zobrist::pieceHashes[0][7][bR];
+        currentState.hashCode ^= zobrist::pieceHashes[0][m.toX - 1][bR];
+        currentState.hashCode ^= zobrist::pieceHashes[0][7][bR];
         currentState.castlePerm &= ~k;
         SET_PIECE(0, m.toX - 1, bR);
         SET_PIECE(0, 7, empty);
     }
     else if(p == wK && m.toX == m.fromX - 2) {
         //White king side
-        // currentState.hashCode ^= zobrist::pieceHashes[7][m.toX + 1][wR];
-        // currentState.hashCode ^= zobrist::pieceHashes[7][0][wR];
+        currentState.hashCode ^= zobrist::pieceHashes[7][m.toX + 1][wR];
+        currentState.hashCode ^= zobrist::pieceHashes[7][0][wR];
         currentState.castlePerm &= ~Q;
         SET_PIECE(7, m.toX + 1, wR);
         SET_PIECE(7, 0, empty);
     }
     else if(p == wK && m.toX == m.fromX + 2) {
         //White queen side
-        // currentState.hashCode ^= zobrist::pieceHashes[7][m.toX - 1][wR];
-        // currentState.hashCode ^= zobrist::pieceHashes[7][7][wR];
+        currentState.hashCode ^= zobrist::pieceHashes[7][m.toX - 1][wR];
+        currentState.hashCode ^= zobrist::pieceHashes[7][7][wR];
         currentState.castlePerm &= ~K;
         SET_PIECE(7, m.toX - 1, wR);
         SET_PIECE(7, 7, empty);
@@ -403,27 +404,7 @@ void Game::makeMove(const move& m) {
     currentState.turn = (Colour)-currentState.turn;
     ++currentState.turns;
 
-    //Put new castle permissions back into hash
-    // currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
-
-    //Put new enPass location back into hash
-    // currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
-
-    //Put new turn back into hash
-    // currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
-
-    currentState.hashCode = 0;
-
-    for(int row = 0; row < 8; row++) {
-        for(int col = 0; col < 8; col++) {
-            Piece p = PIECE_AT(row, col);
-
-            if(p != empty) {
-                currentState.hashCode ^= zobrist::pieceHashes[row][col][p];
-            }
-        }
-    }
-
+    //Hash
     currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
     currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
     currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
@@ -434,7 +415,6 @@ void Game::undoLastMove() {
     stateHistory.pop_back();
 }
 
-//TODO: This is #1 performance bottleneck
 const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attackingColour) {
     if(pieceColours[PIECE_AT(y, x)] == attackingColour) {
         //Cannot attack own side
@@ -556,16 +536,15 @@ const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attacki
     return false;
 }
 
-void Game::addQuietMove(const Colour turn, std::vector<move>& moves, move move) {
+void Game::addQuietMove(const Colour turn, move_list& moveList, move move) {
     assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
 
     move.score = move.isCastle ? 100 : 0;
 
-    //TODO: This is slow!
-    moves.push_back(move);
+    moveList.addMove(move);
 }
 
-void Game::addCaptureMove(const Colour turn, std::vector<move>& moves, move move, const Piece pieceMoved, const Piece capturedPiece) {
+void Game::addCaptureMove(const Colour turn, move_list& moveList, move move, const Piece pieceMoved, const Piece capturedPiece) {
     assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
     assert(pieceMoved != empty);
     assert(pieceMoved != off_board);
@@ -578,10 +557,10 @@ void Game::addCaptureMove(const Colour turn, std::vector<move>& moves, move move
     
     move.score = MvvLVA[pieceTypes[capturedPiece]][pieceTypes[pieceMoved]];
     
-    moves.push_back(move);
+    moveList.addMove(move);
 }
 
-void Game::generateMoves(const Colour turn, std::vector<move>& moves, bool capturesOnly) {
+void Game::generateMoves(const Colour turn, move_list& moveList, bool capturesOnly) {
     for(unsigned int i = 0; i < 8; i++) {
         for (unsigned int j = 0; j < 8; j++) {
             Piece p = PIECE_AT(i, j);
@@ -592,22 +571,22 @@ void Game::generateMoves(const Colour turn, std::vector<move>& moves, bool captu
 
             switch(pieceTypes[p]) {
                 case Pawn: 
-                    generatePawnMoves(turn, moves, j, i, capturesOnly);
+                    generatePawnMoves(turn, moveList, j, i, capturesOnly);
                     break;
                 case Knight:
-                    generateKnightMoves(turn, moves, j, i, capturesOnly);
+                    generateKnightMoves(turn, moveList, j, i, capturesOnly);
                     break;
                 case Bishop:
-                    generateBishopMoves(turn, moves, j, i, capturesOnly);
+                    generateBishopMoves(turn, moveList, j, i, capturesOnly);
                     break;
                 case Rook:
-                    generateRookMoves(turn, moves, j, i, capturesOnly);
+                    generateRookMoves(turn, moveList, j, i, capturesOnly);
                     break;
                 case Queen:
-                    generateQueenMoves(turn, moves, j, i, capturesOnly);
+                    generateQueenMoves(turn, moveList, j, i, capturesOnly);
                     break;  
                 case King:
-                    generateKingMoves(turn, moves, j, i, capturesOnly);
+                    generateKingMoves(turn, moveList, j, i, capturesOnly);
                     break;
                 default:
                     break;
@@ -616,7 +595,7 @@ void Game::generateMoves(const Colour turn, std::vector<move>& moves, bool captu
     }
 }
 
-void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generatePawnMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     const int pawnMoveDir = turn == BLACK ? 1 : -1;
@@ -777,7 +756,7 @@ void Game::generatePawnMoves(const Colour turn, std::vector<move>& moves, unsign
     }
 }
 
-void Game::generateKnightMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateKnightMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     const int offsets[8][2] = {
@@ -813,7 +792,7 @@ void Game::generateKnightMoves(const Colour turn, std::vector<move>& moves, unsi
     }
 }
 
-void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateBishopMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     int yDirsDiag[2] = { -1, 1 };
@@ -857,7 +836,7 @@ void Game::generateBishopMoves(const Colour turn, std::vector<move>& moves, unsi
     }
 }
 
-void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateRookMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     int yDirsNonDiag[4] = { -1, 1, 0, 0 };
@@ -898,12 +877,12 @@ void Game::generateRookMoves(const Colour turn, std::vector<move>& moves, unsign
     }
 }
 
-void Game::generateQueenMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateQueenMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     generateBishopMoves(turn, moves, x, y, capturesOnly);
     generateRookMoves(turn, moves, x, y, capturesOnly);
 }
 
-void Game::generateKingMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly) {
+void Game::generateKingMoves(const Colour turn, move_list& moves, unsigned int x, unsigned int y, bool capturesOnly) {
     Piece piece = PIECE_AT(y, x);
 
     const int offsets[8][2] = {

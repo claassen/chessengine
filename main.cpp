@@ -13,7 +13,7 @@
 #include "perft.h"
 #include "debug.h"
 
-#define PV_TABLE_SIZE (1024 * 1024 * 2023)  //100 MB
+#define PV_TABLE_SIZE (1024 * 1024 * 2023)
 #define MAX_SEARCH_DEPTH 64
 
 Game* game = new Game();
@@ -98,7 +98,7 @@ void position(const std::string& input) {
 
     int movesStart = input.find("moves");
     if(movesStart != -1) {
-        split(input.substr(movesStart + 6), moves);              
+        split(input.substr(movesStart + 6), moves);     
     }
 
     if(input.substr(9, 8).compare("startpos") == 0) {
@@ -178,11 +178,10 @@ int main() {
             go(input, maxMoveTimeInMs);
         }
         else if(input.compare("stop") == 0) {
-            // stop = true;
+            stopSearch = true;
         }
         else if(input.compare("perft suite") == 0) {
             perftTestSuite(game);
-            return 0;
         }
         else if(input.substr(0, 5).compare("perft") == 0) {
             //perft <depth>

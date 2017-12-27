@@ -117,6 +117,16 @@ struct move {
 
 #define NO_MOVE (move{ .fromX = 0, .fromY = 0, .toX = 0, .toY = 0, .promotion = Empty })
 
+struct move_list {
+    //From what I can find, 208 is the maximum number of moves at any position in chess
+    move moves[256];
+    int numMoves = 0;
+
+    void addMove(const move mv) {
+        moves[numMoves++] = mv;
+    }
+};
+
 class Game {
 public:
     gameState currentState;
@@ -126,15 +136,15 @@ public:
     void makeMove(const move& move);
     void undoLastMove();
     const bool isAttacked(unsigned int x, unsigned int y, const Colour attackingColour);
-    void addQuietMove(const Colour turn, std::vector<move>& moves, move move);
-    void addCaptureMove(const Colour turn, std::vector<move>& moves, move move, const Piece pieceMoved, const Piece capturedPiece);
-    void generateMoves(const Colour turn, std::vector<move>& moves, bool capturesOnly);
-    void generatePawnMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
-    void generateKnightMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
-    void generateBishopMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
-    void generateRookMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
-    void generateQueenMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
-    void generateKingMoves(const Colour turn, std::vector<move>& moves, unsigned int x, unsigned int y, bool capturesOnly);
+    void addQuietMove(const Colour turn, move_list& moveList, move move);
+    void addCaptureMove(const Colour turn, move_list& moveList, move move, const Piece pieceMoved, const Piece capturedPiece);
+    void generateMoves(const Colour turn, move_list& moveList, bool capturesOnly);
+    void generatePawnMoves(const Colour turn, move_list& moveList, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateKnightMoves(const Colour turn, move_list& moveList, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateBishopMoves(const Colour turn, move_list& moveList, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateRookMoves(const Colour turn, move_list& moveList, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateQueenMoves(const Colour turn, move_list& moveList, unsigned int x, unsigned int y, bool capturesOnly);
+    void generateKingMoves(const Colour turn, move_list& moveList, unsigned int x, unsigned int y, bool capturesOnly);
     int getScore(int turn);
     void print();
 };
