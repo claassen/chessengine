@@ -104,8 +104,6 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, int pl
         }
     }
 
-    int turn = game->currentState.turn;
-
     if(depth == 0) {
         return quiesce(game, alpha, beta, stop);
     }
@@ -127,6 +125,7 @@ const int alphaBeta(Game* game, move& mv, int depth, int alpha, int beta, int pl
     move bestMove = NO_MOVE;
     bool anyMoves = false;
     int oldAlpha = alpha;
+    int turn = game->currentState.turn;    
 
     for(int i = 0; i < moves.numMoves; ++i) {
         const move m = moves.moves[i];

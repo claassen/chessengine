@@ -124,6 +124,27 @@ const std::string getMoveStr(const move& move) {
     return ss.str();
 }
 
+const move getMove(const std::string& moveStr) {
+    PieceType promotion = Empty;
+
+    if(moveStr.length() > 4) {
+        promotion = getPiecePromotionType(moveStr.at(4));
+    }
+
+    unsigned int fromX = moveStr.at(0) - 'a';
+    unsigned int fromY = 7 - (moveStr.at(1) - '0' - 1);
+    unsigned int toX = moveStr.at(2) - 'a';
+    unsigned int toY = 7 - (moveStr.at(3) - '0' - 1);
+
+    return {  
+        fromX,
+        fromY,
+        toX,
+        toY,
+        promotion
+    };
+}
+
 const long long getCurrentTimeInMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }

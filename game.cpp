@@ -9,7 +9,6 @@
 
 #define SET_PIECE(row, col, piece) (currentState.board[row + 2][col + 2] = piece)
 #define PIECE_AT(row, col)         (currentState.board[row + 2][col + 2])
-#define MOVE_IS_ALLOWED(turn)  ((turn == WHITE && !currentState.whiteInCheck) || (turn == BLACK && !currentState.blackInCheck))
 
 const PieceType pieceTypes[14] = {
     Empty,
@@ -148,27 +147,6 @@ void Game::startPosition(const std::string& fen) {
     currentState.hashCode ^= zobrist::enPassHashes[currentState.enPass.y][currentState.enPass.x];
     currentState.hashCode ^= zobrist::castlePermHashes[currentState.castlePerm];
     currentState.hashCode ^= zobrist::turnHashes[currentState.turn == WHITE ? 0 : 1];
-}
-
-void Game::makeMove(const std::string& move) {
-    PieceType promotion = Empty;
-
-    if(move.length() > 4) {
-        promotion = getPiecePromotionType(move.at(4));
-    }
-
-    unsigned int fromX = move.at(0) - 'a';
-    unsigned int fromY = 7 - (move.at(1) - '0' - 1);
-    unsigned int toX = move.at(2) - 'a';
-    unsigned int toY = 7 - (move.at(3) - '0' - 1);
-
-    makeMove({  
-        .fromX = fromX,
-        .fromY = fromY,
-        .toX = toX,
-        .toY = toY,
-        .promotion = promotion
-    });
 }
 
 void Game::makeMove(const move& m) {
@@ -462,9 +440,7 @@ const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attacki
 }
 
 void Game::addQuietMove(move_list& moveList, move move) {
-    assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
-
-    move.score = move.isCastle ? 100 : 0;
+    assert(move.fromX >= 0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
 
     moveList.addMove(move);
 }
@@ -485,7 +461,7 @@ void Game::addCaptureMove(move_list& moveList, move move, const Piece pieceMoved
     moveList.addMove(move);
 }
 
-void Game::generateMoves(move_list& moveList, bool capturesOnly) {
+void Game::generateMoves(move_list& moves, bool capturesOnly) {
     for(unsigned int i = 0; i < 8; i++) {
         for (unsigned int j = 0; j < 8; j++) {
             Piece p = PIECE_AT(i, j);
@@ -496,22 +472,22 @@ void Game::generateMoves(move_list& moveList, bool capturesOnly) {
 
             switch(pieceTypes[p]) {
                 case Pawn: 
-                    generatePawnMoves(moveList, j, i, capturesOnly);
+                    generatePawnMoves(moves, j, i, capturesOnly);
                     break;
                 case Knight:
-                    generateKnightMoves(moveList, j, i, capturesOnly);
+                    generateKnightMoves(moves, j, i, capturesOnly);
                     break;
                 case Bishop:
-                    generateBishopMoves(moveList, j, i, capturesOnly);
+                    generateBishopMoves(moves, j, i, capturesOnly);
                     break;
                 case Rook:
-                    generateRookMoves(moveList, j, i, capturesOnly);
+                    generateRookMoves(moves, j, i, capturesOnly);
                     break;
                 case Queen:
-                    generateQueenMoves(moveList, j, i, capturesOnly);
+                    generateQueenMoves(moves, j, i, capturesOnly);
                     break;  
                 case King:
-                    generateKingMoves(moveList, j, i, capturesOnly);
+                    generateKingMoves(moves, j, i, capturesOnly);
                     break;
                 default:
                     break;
@@ -537,10 +513,10 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
         assert(enPassPiece != empty);
 
         addCaptureMove(moves, {
-            .fromX = x,
-            .fromY = y,
-            .toX = x - 1,
-            .toY = y + pawnMoveDir
+            x,
+            y,
+            x - 1,
+            y + pawnMoveDir
         }, piece, enPassPiece);
     }
     //Regular capture left
@@ -551,11 +527,11 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
             //Promotion white
             for(int i = 0; i < 4; ++i) {
                 addCaptureMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = x - 1,
-                    .toY = y + pawnMoveDir,
-                    .promotion = promotionTypes[i]
+                    x,
+                    y,
+                    x - 1,
+                    y + pawnMoveDir,
+                    promotionTypes[i]
                 }, piece, leftDiag);
             }
         }
@@ -563,20 +539,20 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
             //Promotion black
             for(int i = 0; i < 4; ++i) {
                 addCaptureMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = x - 1,
-                    .toY = y + pawnMoveDir,
-                    .promotion = promotionTypes[i]
+                    x,
+                    y,
+                    x - 1,
+                    y + pawnMoveDir,
+                    promotionTypes[i]
                 }, piece, leftDiag);
             }
         }
         else {
             addCaptureMove(moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x - 1,
-                .toY = y + pawnMoveDir
+                x,
+                y,
+                x - 1,
+                y + pawnMoveDir
             }, piece, leftDiag);
         }
     }
@@ -588,10 +564,10 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
         assert(enPassPiece != empty);
 
         addCaptureMove(moves, {
-            .fromX = x,
-            .fromY = y,
-            .toX = x + 1,
-            .toY = y + pawnMoveDir
+            x,
+            y,
+            x + 1,
+            y + pawnMoveDir
         }, piece, enPassPiece);
     }
     //Regular capture right
@@ -601,31 +577,31 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
         if(turn == WHITE && y == 1) {
             for(int i = 0; i < 4; ++i) {
                 addCaptureMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = x + 1,
-                    .toY = y + pawnMoveDir,
-                    .promotion = promotionTypes[i]
+                    x,
+                    y,
+                    x + 1,
+                    y + pawnMoveDir,
+                    promotionTypes[i]
                 }, piece, rightDiag);
             }
         }
         else if(turn == BLACK && y == 6) {
             for(int i = 0; i < 4; ++i) {
                 addCaptureMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = x + 1,
-                    .toY = y + pawnMoveDir,
-                    .promotion = promotionTypes[i]
+                    x,
+                    y,
+                    x + 1,
+                    y + pawnMoveDir,
+                    promotionTypes[i]
                 }, piece, rightDiag);
             }
         }
         else {
             addCaptureMove(moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x + 1,
-                .toY = y + pawnMoveDir
+                x,
+                y,
+                x + 1,
+                y + pawnMoveDir
             }, piece, rightDiag);
         }
     }
@@ -639,11 +615,11 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
                 //White promotion
                 for(int i = 0; i < 4; ++i) {
                     addQuietMove(moves, {
-                        .fromX = x,
-                        .fromY = y,
-                        .toX = x,
-                        .toY = y + pawnMoveDir,
-                        .promotion = promotionTypes[i]
+                        x,
+                        y,
+                        x,
+                        y + pawnMoveDir,
+                        promotionTypes[i]
                     });
                 }
             }
@@ -651,20 +627,20 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
                 //Black promotion
                 for(int i = 0; i < 4; ++i) {
                     addQuietMove(moves, {
-                        .fromX = x,
-                        .fromY = y,
-                        .toX = x,
-                        .toY = y + pawnMoveDir,
-                        .promotion = promotionTypes[i]
+                        x,
+                        y,
+                        x,
+                        y + pawnMoveDir,
+                        promotionTypes[i]
                     });
                 }
             }
             else {
                 addQuietMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = x,
-                    .toY = y + pawnMoveDir
+                    x,
+                    y,
+                    x,
+                    y + pawnMoveDir
                 });
             }
 
@@ -673,10 +649,10 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
             //Double move forward from starting position
             if(forwardTwo == empty && ((turn == BLACK && y == 1) || (turn == WHITE && y == 6))) {
                 addQuietMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = x,
-                    .toY = y + (pawnMoveDir * 2)
+                    x,
+                    y,
+                    x,
+                    y + (pawnMoveDir * 2)
                 });
             }
         }
@@ -704,18 +680,18 @@ void Game::generateKnightMoves(move_list& moves, unsigned int x, unsigned int y,
 
         if(p == empty && !capturesOnly) {
             addQuietMove(moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x + offsets[i][1],
-                .toY = y + offsets[i][0]
+                x,
+                y,
+                x + offsets[i][1],
+                y + offsets[i][0]
             });
         }
         else if(pieceColours[p] == -turn) {
             addCaptureMove(moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x + offsets[i][1],
-                .toY = y + offsets[i][0]
+                x,
+                y,
+                x + offsets[i][1],
+                y + offsets[i][0]
             }, piece, p);
         }
     }
@@ -747,18 +723,18 @@ void Game::generateBishopMoves(move_list& moves, unsigned int x, unsigned int y,
 
                 if(p == empty && !capturesOnly) {
                     addQuietMove(moves, {
-                        .fromX = x,
-                        .fromY = y,
-                        .toX = (unsigned int)searchX,
-                        .toY = (unsigned int)searchY
+                        x,
+                        y,
+                        (unsigned int)searchX,
+                        (unsigned int)searchY
                     });
                 }
                 else if(pieceColours[p] == -turn) {
                     addCaptureMove(moves, {
-                        .fromX = x,
-                        .fromY = y,
-                        .toX = (unsigned int)searchX,
-                        .toY = (unsigned int)searchY
+                        x,
+                        y,
+                        (unsigned int)searchX,
+                        (unsigned int)searchY
                     }, piece, p);
                     break;
                 }
@@ -791,18 +767,18 @@ void Game::generateRookMoves(move_list& moves, unsigned int x, unsigned int y, b
 
             if(p == empty && !capturesOnly) {
                 addQuietMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = (unsigned int)searchX,
-                    .toY = (unsigned int)searchY
+                    x,
+                    y,
+                    (unsigned int)searchX,
+                    (unsigned int)searchY
                 });
             }
             else if(pieceColours[p] == -turn) {
                 addCaptureMove(moves, {
-                    .fromX = x,
-                    .fromY = y,
-                    .toX = (unsigned int)searchX,
-                    .toY = (unsigned int)searchY
+                    x,
+                    y,
+                    (unsigned int)searchX,
+                    (unsigned int)searchY
                 }, piece, p);
                 break;
             }
@@ -836,20 +812,20 @@ void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, b
 
         if(p == empty && !capturesOnly && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
             addQuietMove(moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x + offsets[i][0],
-                .toY = y + offsets[i][1]
+                x,
+                y,
+                x + offsets[i][0],
+                y + offsets[i][1]
             });
         }
         else if(p != off_board && pieceColours[p] == -turn && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
             assert(p != empty);
 
             addCaptureMove(moves, {
-                .fromX = x,
-                .fromY = y,
-                .toX = x + offsets[i][0],
-                .toY = y + offsets[i][1]    
+                x,
+                y,
+                x + offsets[i][0],
+                y + offsets[i][1]    
             }, piece, p);
         }
     }
@@ -877,11 +853,10 @@ void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, b
 
                 if(canCastle) {
                     addQuietMove(moves, {
-                        .fromX = x,
-                        .fromY = y,
-                        .toX = 6,
-                        .toY = 7,
-                        .isCastle = true
+                        x,
+                        y,
+                        6,
+                        7
                     });
                 }
             }
@@ -914,11 +889,10 @@ void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, b
 
                     if(canCastle) {
                         addQuietMove(moves, {
-                            .fromX = x,
-                            .fromY = y,
-                            .toX = 2,
-                            .toY = 7,
-                            .isCastle = true
+                            x,
+                            y,
+                            2,
+                            7
                         });
                     }
                 }
@@ -945,11 +919,10 @@ void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, b
 
                 if(canCastle) {
                     addQuietMove(moves, {
-                        .fromX = x,
-                        .fromY = y,
-                        .toX = 6,
-                        .toY = 0,
-                        .isCastle = true
+                        x,
+                        y,
+                        6,
+                        0
                     });
                 }
             }
@@ -982,11 +955,10 @@ void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, b
 
                     if(canCastle) {
                         addQuietMove(moves, {
-                            .fromX = x,
-                            .fromY = y,
-                            .toX = 2,
-                            .toY = 0,
-                            .isCastle = true
+                            x,
+                            y,
+                            2,
+                            0
                         });
                     }
                 }

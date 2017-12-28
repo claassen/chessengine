@@ -130,7 +130,7 @@ void position(const std::string& input) {
     }
 
     for(auto it = moves.begin(); it != moves.end(); ++it) {
-        game->makeMove(*it);
+        game->makeMove(getMove(*it));
     }
 }
 
@@ -213,8 +213,8 @@ int main() {
             printPvStatistics();
         }
         else if(input.substr(0, 4).compare("move") == 0) {
-            std::string move = input.substr(5);
-            game->makeMove(move);
+            std::string moveStr = input.substr(5);
+            game->makeMove(getMove(moveStr));
         }
     }
 }
