@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "game.h"
 #include "utils.h"
 #include "debug.h"

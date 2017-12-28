@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <sstream>
-#include <algorithm>
 
 #include "game.h"
 #include "zobrist.h"
@@ -339,7 +338,7 @@ const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attacki
     }
 
     //En passant
-    if(currentState.enPass != NO_EN_PASS && y == currentState.enPass.y - pawnMoveDir && x == currentState.enPass.x) {
+    if(currentState.enPass != NO_EN_PASS && y == (unsigned int)(currentState.enPass.y - pawnMoveDir) && x == currentState.enPass.x) {
         const Piece leftEnPassant = PIECE_AT(y, x - 1);
         const Piece rightEnPassant = PIECE_AT(y, x + 1);
 

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "pvtable.h"
 #include "utils.h"
 #include "debug.h"

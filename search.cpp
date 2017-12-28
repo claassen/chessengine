@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "search.h"
 #include "pvtable.h"
 #include "evaluation.h"
