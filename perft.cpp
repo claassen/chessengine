@@ -41,10 +41,6 @@ void perftTestSuite(Game* game) {
     std::string line;
 
     while(std::getline(infile, line)) {
-        if(line.substr(0, 2).compare("//") == 0) {
-            continue;
-        }
-
         std::vector<std::string> parts;
         split(line, parts);
 

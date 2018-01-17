@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "perft.h"
 #include "debug.h"
+#include "tcpsocket.h"
 
 #define PV_TABLE_SIZE (1024 * 1024 * 2023)
 #define MAX_SEARCH_DEPTH 64
@@ -24,6 +25,8 @@ std::condition_variable search_done_cond;
 
 volatile bool stopSearch = false;
 volatile bool stopPonder = false;
+
+int movesToGo = 50; //default number of moves estimated for a game
 
 void search(move* bestMove) {
     std::lock_guard<std::mutex> gameStateLock(game_state_m);
@@ -39,7 +42,10 @@ void search(move* bestMove) {
         if(!stopSearch) {
             std::cout << "info depth " << depth << " score cp " << ((float)score/1.0) << " pv";
 
+            LOG(std::string("info depth ") + std::to_string(depth) + " score cp " + std::to_string(((float)score/1.0)) + " pv");
+
             std::vector<move> pvMoves;
+            
             getPvLine(game, pvMoves, depth);
 
             for(auto it = pvMoves.begin(); it != pvMoves.end(); ++it) {
@@ -69,7 +75,7 @@ void ponder() {
     }
 }
 
-void go(const std::string& input, int timeInMs) {
+void go(int timeInMs, move& moveMade) {
     if(!searchDone) {
         std::unique_lock<std::mutex> searchDoneLock(search_done_m);
         while(!searchDone) {
@@ -82,7 +88,6 @@ void go(const std::string& input, int timeInMs) {
     searchDone = false;
 
     std::thread searchThread(search, &bestMove);
-    searchThread.detach();
 
     long long start = getCurrentTimeInMs();
 
@@ -97,7 +102,11 @@ void go(const std::string& input, int timeInMs) {
         }
     }
 
-    std::cout << "bestmove " << getMoveStr(bestMove) << std::endl;
+    LOG(getMoveStr(bestMove));
+    
+    moveMade = bestMove;
+
+    searchThread.join();
 
     game->makeMove(bestMove);
 
@@ -109,14 +118,13 @@ void go(const std::string& input, int timeInMs) {
 
 void position(const std::string& input) {
     stopPonder = true;
-
     std::lock_guard<std::mutex> lock(game_state_m);
 
     std::vector<std::string> moves;
 
     int movesStart = input.find("moves");
     if(movesStart != -1) {
-        split(input.substr(movesStart + 6), moves);     
+        split(input.substr(movesStart + 6), moves);    
     }
 
     if(input.substr(9, 8).compare("startpos") == 0) {
@@ -133,23 +141,12 @@ void position(const std::string& input) {
     }
 }
 
+void uci() {
+    std::cout << "id name TestEngine" << std::endl;
+    std::cout << "id author Michael Claassen" << std::endl;
+    std::cout << "uciok" << std::endl;
 
-//Why is pawn not taking bishop?
-//2r2rk1/6pp/p7/1p1p3b/6P1/1RP2N1n/PKP5/4R3 w - - 0 39
-
-
-//Why does Knight take bishop instead of pawn taking rook?
-//r2k1b1r/p3n1pp/2ppBpq1/1RnP4/5Q2/2P3P1/PP1NP2P/R1B3K1 b - - 1 17
-
-int main() {
-    std::cout.setf(std::ios::unitbuf);
-    std::cin.setf(std::ios::unitbuf);
-    // signal(SIGINT, SIG_IGN);
-    zobrist::initialize();
-    initPvTable(PV_TABLE_SIZE);
-    INIT_LOGGING();
-
-    std::string input;        
+    std::string input;
 
     while(true) {
         std::getline(std::cin, input);
@@ -158,16 +155,17 @@ int main() {
             LOG_INPUT(input);
         }
 
-        if(input.compare("uci") == 0) {
-            std::cout << "id name TestEngine" << std::endl;
-            std::cout << "id author Mike" << std::endl;
-            std::cout << "uciok" << std::endl;
-        }
-        else if(input.compare("isready") == 0) {
+        if(input.compare("isready") == 0) {
             std::cout << "readyok" << std::endl;
         }
         else if(input.compare("ucinewgame") == 0) {
+            stopPonder = true;
+            {
+                std::lock_guard<std::mutex> lock(game_state_m);
+            }
+            delete game;
             game = new Game();
+            movesToGo = 50;
         }
         else if(input.substr(0, 8).compare("position") == 0) {
             //position startpos [moves e2e4...]
@@ -175,28 +173,147 @@ int main() {
             position(input);
         }
         else if(input.substr(0, 2).compare("go") == 0) {
-            //go wtime 300000 btime 300000 movestogo 40
+            //go wtime 300000 btime 300000 [movestogo 50]
             std::vector<std::string> parts;
             split(input, parts);
 
-            int maxMoveTimeInMs = 60000; //10 seconds
+            int maxMoveTimeInMs = 7000; //10 seconds
 
             if(parts.size() > 1) {
                 int wTimeMs = std::stoi(parts[2]);
                 int bTimeMs = std::stoi(parts[4]);
-                int movesToGo = 50;
 
                 if(parts.size() > 6) {
                     movesToGo = std::stoi(parts[6]);
+                }
+                else {
+                    movesToGo--;            
                 }
 
                 maxMoveTimeInMs = (game->currentState.turn == WHITE ? wTimeMs : bTimeMs) / movesToGo;
             }
             
-            go(input, maxMoveTimeInMs);
+            LOG(std::string("Moves to go: ") + std::to_string(movesToGo));
+            LOG(std::string("Move time (ms): ") + std::to_string(maxMoveTimeInMs));
+
+            move bestMove;
+            go(maxMoveTimeInMs, bestMove);
+            std::cout << "bestmove " << getMoveStr(bestMove) << std::endl;
         }
         else if(input.compare("stop") == 0) {
             stopSearch = true;
+        }
+
+        //TODO: quit
+    }
+}
+
+void tb_position(const std::string& fen) {
+    stopPonder = true;
+    std::lock_guard<std::mutex> lock(game_state_m);
+    std::cout << "fen: " << fen << std::endl;
+    game->startPosition(fen);
+    game->print();
+}
+
+void tb() {
+    TCPSocket server("54.173.172.97", 1234);
+    // TCPSocket server("0.0.0.0", 1234);
+
+    std::cout << "Enter tournament name: ";
+    std::string tourneyName;
+    std::cin >> tourneyName;
+
+    std::cout << "\n\nEnter player name: ";
+    std::string playerName;
+    std::cin >> playerName;
+
+    server.writeLine(std::string("JOIN ") + tourneyName + " " + playerName + "\n");
+
+    std::string gameId;
+    int timeLimit;
+    int increment;
+
+    while(true) {
+        std::string input = server.readLine();
+
+        if(input.size() != 0) {
+            std::cout << input << std::endl;
+        }
+
+        if(input.substr(0, 11).compare("GAME_PAIRED") == 0) {
+            std::vector<std::string> parts;
+            split(input, parts);
+
+            gameId = parts[1];
+
+            timeLimit = std::stoi(parts[4]);
+            increment = std::stoi(parts[5]);
+
+            server.writeLine(std::string("ACK ") + gameId + "\n");
+        }
+        else if(input.substr(0, 12).compare("GAME_STARTED") == 0) {
+            stopPonder = true;
+            {
+                std::lock_guard<std::mutex> lock(game_state_m);
+            }
+            delete game;
+            game = new Game();
+            movesToGo = 50;
+        }
+        else if(input.substr(0, 9).compare("YOUR_MOVE") == 0) {
+            std::vector<std::string> parts;
+            split(input, parts);
+
+            float wTimeS = std::stof(parts[4]);
+            float bTimeS = std::stof(parts[5]);
+
+            std::string fen = parts[6];
+            for(int i = 7; i < parts.size(); i++) {
+                fen = fen + " " + parts[i];
+            }
+
+            tb_position(fen);
+
+            int maxMoveTimeInMs = ((game->currentState.turn == WHITE ? wTimeS : bTimeS) / movesToGo--) * 1000;
+
+            std::cout << "Moves to go: " << std::to_string(movesToGo) << std::endl;
+            std::cout << "Move time (ms): " << std::to_string(maxMoveTimeInMs) << std::endl;
+
+            move bestMove;
+            go(maxMoveTimeInMs, bestMove);
+            server.writeLine(std::string("MOVE ") + gameId + " " + getMoveStr(bestMove) + "\n");
+        }
+    }
+}
+
+//MAKING BAD KING MOVE
+//position fen 4r1k1/2pp4/2p3p1/p4p2/Pb3P2/2Pq4/P3N2P/R1B2K2 w - - 0 29
+
+//BAD QUEEN MOVE
+//position fen 4kb1r/rp2p2p/3p1pp1/2n5/5P2/2Q5/4N1PP/1q4KR w k - 0 20
+
+//signal 8??
+//position fen 8/1p6/8/8/1PPb2k1/P2Kp3/3p2PP/3N4 w - - 4 50
+int main(int argc, char *argv[]) {
+    std::cout.setf(std::ios::unitbuf);
+    std::cin.setf(std::ios::unitbuf);
+    // signal(SIGINT, SIG_IGN);
+    zobrist::initialize();
+    initPvTable(PV_TABLE_SIZE);
+
+    INIT_LOGGING();
+
+    std::string input;
+
+    while(true) {
+        std::getline(std::cin, input);
+
+        if(input.compare("uci") == 0) {
+            uci();
+        }
+        else if(input.compare("tb") == 0) {
+            tb();
         }
         else if(input.compare("perft suite") == 0) {
             perftTestSuite(game);

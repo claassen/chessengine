@@ -439,17 +439,17 @@ const bool Game::isAttacked(unsigned int x, unsigned int y, const Colour attacki
 }
 
 void Game::addQuietMove(move_list& moveList, move move) {
-    assert(move.fromX >= 0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
+    ASSERT(move.fromX >= 0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
 
     moveList.addMove(move);
 }
 
 void Game::addCaptureMove(move_list& moveList, move move, const Piece pieceMoved, const Piece capturedPiece) {
-    assert(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
-    assert(pieceMoved != empty);
-    assert(pieceMoved != off_board);
-    assert(capturedPiece != empty);
-    assert(pieceMoved != off_board);
+    ASSERT(move.fromX >=0 && move.fromY >= 0 && move.toX < 8 && move.toY < 8);
+    ASSERT(pieceMoved != empty);
+    ASSERT(pieceMoved != off_board);
+    ASSERT(capturedPiece != empty);
+    ASSERT(pieceMoved != off_board);
 
     if(pieceTypes[capturedPiece] == King) {
         return;
@@ -509,7 +509,7 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
     if(currentState.enPass != NO_EN_PASS && currentState.enPass.x == x - 1 && currentState.enPass.y == y + pawnMoveDir) {
         const Piece enPassPiece = PIECE_AT(y, x - 1);
 
-        assert(enPassPiece != empty);
+        ASSERT(enPassPiece != empty);
 
         addCaptureMove(moves, {
             x,
@@ -520,7 +520,7 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
     }
     //Regular capture left
     else if(pieceColours[leftDiag] == -turn) {
-        assert(leftDiag != empty);
+        ASSERT(leftDiag != empty);
 
         if(turn == WHITE && y == 1) {
             //Promotion white
@@ -560,7 +560,7 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
     if(currentState.enPass != NO_EN_PASS && currentState.enPass.x == x + 1 && currentState.enPass.y == y + pawnMoveDir) {
         const Piece enPassPiece = PIECE_AT(y, x + 1);
 
-        assert(enPassPiece != empty);
+        ASSERT(enPassPiece != empty);
 
         addCaptureMove(moves, {
             x,
@@ -571,7 +571,7 @@ void Game::generatePawnMoves(move_list& moves, unsigned int x, unsigned int y, b
     }
     //Regular capture right
     else if(pieceColours[rightDiag] == -turn) {
-        assert(rightDiag != empty);
+        ASSERT(rightDiag != empty);
 
         if(turn == WHITE && y == 1) {
             for(int i = 0; i < 4; ++i) {
@@ -818,7 +818,7 @@ void Game::generateKingMoves(move_list& moves, unsigned int x, unsigned int y, b
             });
         }
         else if(p != off_board && pieceColours[p] == -turn && !isAttacked(x + offsets[i][0], y + offsets[i][1], (Colour)-turn)) {
-            assert(p != empty);
+            ASSERT(p != empty);
 
             addCaptureMove(moves, {
                 x,

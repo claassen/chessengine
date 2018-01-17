@@ -50,7 +50,7 @@ char getPiecePromotionChar(PieceType pieceType) {
         case Bishop: return 'b';
         case Rook: return 'r';
         case Queen: return 'q';
-        default: return '\0';
+        default: return 0;
     }
 }
 
@@ -121,9 +121,18 @@ const enPassLocation getEnPassLocation(const char c1, const char c2) {
 }
 
 const std::string getMoveStr(const move& move) {
-    std::stringstream ss;
-    ss << (char)('a' + move.fromX) << (8 - move.fromY) << (char)('a' + move.toX) << (8 - move.toY) << getPiecePromotionChar(move.promotion);
-    return ss.str();
+    std::string s = std::string() + 
+        (char)('a' + move.fromX) + 
+        std::to_string(8 - move.fromY) + 
+        (char)('a' + move.toX) + 
+        std::to_string(8 - move.toY);
+
+    char promotion = getPiecePromotionChar(move.promotion);
+    if(promotion) {
+        s += promotion;
+    }
+
+    return s;
 }
 
 const move getMove(const std::string& moveStr) {
