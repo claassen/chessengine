@@ -190,7 +190,7 @@ void uci() {
                     movesToGo--;            
                 }
 
-                maxMoveTimeInMs = (game->currentState.turn == WHITE ? wTimeMs : bTimeMs) / movesToGo;
+                maxMoveTimeInMs = std::max(1000, (game->currentState.turn == WHITE ? wTimeMs : bTimeMs) / (std::max(1, movesToGo)));
             }
             
             LOG(std::string("Moves to go: ") + std::to_string(movesToGo));
@@ -287,14 +287,6 @@ void tb() {
     }
 }
 
-//MAKING BAD KING MOVE
-//position fen 4r1k1/2pp4/2p3p1/p4p2/Pb3P2/2Pq4/P3N2P/R1B2K2 w - - 0 29
-
-//BAD QUEEN MOVE
-//position fen 4kb1r/rp2p2p/3p1pp1/2n5/5P2/2Q5/4N1PP/1q4KR w k - 0 20
-
-//signal 8??
-//position fen 8/1p6/8/8/1PPb2k1/P2Kp3/3p2PP/3N4 w - - 4 50
 int main(int argc, char *argv[]) {
     std::cout.setf(std::ios::unitbuf);
     std::cin.setf(std::ios::unitbuf);
