@@ -144,6 +144,7 @@ public:
     void generateQueenMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly);
     void generateKingMoves(move_list& moves, unsigned int x, unsigned int y, bool capturesOnly);
     void print();
+    int currentBoardValue();
 };
 
 #endif

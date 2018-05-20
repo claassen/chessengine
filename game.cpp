@@ -983,3 +983,40 @@ void Game::print() {
     printf("Hash code: %llu\n", currentState.hashCode);
     printf("\n");
 }
+
+int Game::currentBoardValue() {
+    int value = 0;
+
+    for(int i = 0; i < 8; ++i) {
+        for(int j = 0; j < 8; ++j) {
+            Piece p = PIECE_AT(i, j);
+
+            switch(p) {
+                case bP: 
+                case wP:                 
+                    value += 100;    
+                    break;
+                case bN: 
+                case wN:                 
+                    value += 320; 
+                    break;
+                case bB: 
+                case wB:                 
+                    value += 330; 
+                    break;
+                case bR: 
+                case wR:                 
+                    value += 500; 
+                    break;
+                case bQ: 
+                case wQ:                 
+                    value += 900; 
+                    break;
+                default: 
+                    break;
+            }
+        }
+    }
+
+    return value;
+}

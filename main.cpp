@@ -274,8 +274,20 @@ void tb() {
 
             tb_position(fen);
 
-            float maxMoveTimeInMs = ((game->currentState.turn == WHITE ? wTimeS : bTimeS) / std::max(1, std::max(10, movesToGo--))) * 1000;
-            maxMoveTimeInMs = std::min((game->currentState.turn == WHITE ? wTimeS : bTimeS), std::max(1000.0f, maxMoveTimeInMs));
+            int currentBoardValue = game->currentBoardValue();
+            std::cout << "Board value: " << currentBoardValue << std::endl;
+
+            //Starting board value is 8000, assume 8000 value takes 50 turns            
+            float estRemainingMoves = (currentBoardValue / 8000.0f) * 50;
+
+            //Just assume there will never be less than 20 more moves to go and adjust time per move
+            float maxMoveTimeInMs = ((game->currentState.turn == WHITE ? wTimeS : bTimeS) / std::max(20.0f, estRemainingMoves)) * 1000;
+
+            //Take at least 0.5 seconds on a move
+            maxMoveTimeInMs = std::max(500.0f, maxMoveTimeInMs);
+
+            //Don't take more time than remaining time
+            maxMoveTimeInMs = std::min((game->currentState.turn == WHITE ? wTimeS : bTimeS) * 1000.0f, maxMoveTimeInMs);
 
             std::cout << "Moves to go: " << std::to_string(movesToGo) << std::endl;
             std::cout << "Move time (ms): " << std::to_string(maxMoveTimeInMs) << std::endl;
