@@ -26,7 +26,7 @@ std::condition_variable search_done_cond;
 volatile bool stopSearch = false;
 volatile bool stopPonder = false;
 
-int movesToGo = 50; //default number of moves estimated for a game
+int movesToGo = 60; //default number of moves estimated for a game
 
 void search(move* bestMove) {
     std::lock_guard<std::mutex> gameStateLock(game_state_m);
@@ -217,8 +217,7 @@ void tb_position(const std::string& fen) {
 }
 
 void tb() {
-    TCPSocket server("54.173.172.97", 1234);
-    // TCPSocket server("0.0.0.0", 1234);
+    TCPSocket server("52.91.152.19", 1234);
 
     std::cout << "Enter tournament name: ";
     std::string tourneyName;
@@ -275,7 +274,8 @@ void tb() {
 
             tb_position(fen);
 
-            int maxMoveTimeInMs = ((game->currentState.turn == WHITE ? wTimeS : bTimeS) / movesToGo--) * 1000;
+            float maxMoveTimeInMs = ((game->currentState.turn == WHITE ? wTimeS : bTimeS) / std::max(1, std::max(10, movesToGo--))) * 1000;
+            maxMoveTimeInMs = std::min((game->currentState.turn == WHITE ? wTimeS : bTimeS), std::max(1000.0f, maxMoveTimeInMs));
 
             std::cout << "Moves to go: " << std::to_string(movesToGo) << std::endl;
             std::cout << "Move time (ms): " << std::to_string(maxMoveTimeInMs) << std::endl;
